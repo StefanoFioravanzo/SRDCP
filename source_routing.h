@@ -17,12 +17,12 @@
 
 enum packet_type {
     data_packet = 0,
-    pyggibacking = 1,
+    pyggiback = 1,
     topology_report = 2
 };
 
 /* Connection object */
-struct node_state {
+typedef struct node_state {
     // broadcast connection object
     struct broadcast_conn bc;
     // unicast connection object
@@ -39,7 +39,7 @@ struct node_state {
     uint16_t beacon_seqn;
     // true if this node is the sink
     uint8_t sink;  // 1: is_sink, 0: not_sink
-};
+} node_state;
 
 // receiver functions for communications channels
 void bc_recv(struct broadcast_conn *conn, const linkaddr_t *sender);
@@ -66,29 +66,27 @@ struct beacon_message {
     uint16_t seqn;
     uint16_t hop_count;
 } __attribute__((packed));
+typedef struct beacon_message beacon_message;
 
 struct data_packet_header {
     packet_type type;
     linkaddr_t source;
     uint8_t hops;
+    uint8_t pyggi_len;  // 0 in case there is no piggybacking
 } __attribute__((packed));
-
-struct data_packet_header_piggyback {
-    packet_type type;
-    linkaddr_t source;
-    uint8_t hops;
-    uint8_t pyggi_len;
-}__attribute__((packed));
+typedef struct data_packet_header data_packet_header;
 
 struct tree_connection {
     linkaddr_t node;
     linkaddr_t parent;
 };
+typedef struct tree_connection tree_connection;
 
 struct topology_report_header {
     packet_type type;
     // Need just parent because I know who is the sender TODO: check this
     linkaddr_t parent;
 } __attribute__((packed));
+typedef struct topology_report_header topology_report_header;
 
 #endif // SOURCE_ROUTING_H
