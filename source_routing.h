@@ -9,8 +9,17 @@
 
 #define BEACON_INTERVAL (CLOCK_SECOND*60)
 #define BEACON_FORWARD_DELAY (random_rand() * CLOCK_SECOND)
+// time after which the node has to have completed the parent communication
+// rand() % (max_number + 1 - minimum_number) + minimum_number
+#define PARENT_REFRESH_RATE (rand() % (60 + 1 - 30) + 30)
 
 #define RSSI_REJECTION_TRESHOLD -95
+
+enum packet_type {
+    data_packet = 0,
+    pyggibacking = 1,
+    topology_report = 2
+};
 
 /* Connection object */
 struct node_state {
@@ -59,8 +68,27 @@ struct beacon_message {
 } __attribute__((packed));
 
 struct data_packet_header {
+    packet_type type;
     linkaddr_t source;
     uint8_t hops;
+} __attribute__((packed));
+
+struct data_packet_header_piggyback {
+    packet_type type;
+    linkaddr_t source;
+    uint8_t hops;
+    uint8_t pyggi_len;
+}__attribute__((packed));
+
+struct tree_connection {
+    linkaddr_t node;
+    linkaddr_t parent;
+};
+
+struct topology_report_header {
+    packet_type type;
+    // Need just parent because I know who is the sender TODO: check this
+    linkaddr_t parent;
 } __attribute__((packed));
 
 #endif // SOURCE_ROUTING_H

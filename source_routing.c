@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include "core/net/linkaddr.h"
 #include "source_routing.h"
+#include "dictionary.c"
 
 void connection_open(struct node_state* state, uint16_t channels,
                     bool is_sink, const struct custom_conn_callbacks* callbacks)
@@ -30,6 +31,10 @@ void connection_open(struct node_state* state, uint16_t channels,
     // in case this is the sink, start the beacon propagation process
     if (state->is_sink) {
         state->metric=0
+
+        // initialize routing table
+        //TODO: alloc here routing table
+
         // start a timer to send the beacon. Pass to the timer the state object
         ctimer_set(&state->beacon_timer, CLOCK_SECOND, beacon_timer_cb, state)
     }
@@ -111,39 +116,71 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
 }
 
 int send_data(struct node_state *state) {
+    // TODO: decide whether to send pyggiback or not.
+    uint8_t piggy_flag = 0 // TODO:put here a call to some function that decides if to do piggyback
     // initialize header
-    struct data_packet_header hdr = {.source=linkaddr_node_addr, .hops=0};
+    struct data_packet_header hdr = {.type=packet_type.pyggiback, .source=linkaddr_node_addr,
+                                    .hops=0, .pyggi_len=0 };
+    if (piggy_flag) {
+        hdr.pyggi_len = 1;
+    }
+
+    // set current pyggibacking structure
+    struct tree_connection tc = {.node=linkaddr_node_addr, .parent=state->parent};
 
     if (linkaddr_cmp(&state->parent, &linkaddr_null)) {  // in case the node has no parent
         return 0;
     }
 
     // allocate space for the header
-    packetbuf_hdralloc(sizeof(struct data_packet_header));
-    memcpy(packetbuf_hdrptr(), &hdr, sizeof(struct data_packet_header));
+    if (piggy_flag) {
+        packetbuf_hdralloc(sizeof(struct data_packet_header) + sizeof(struct tree_connection));
+        memcpy(packetbuf_hdrptr(), &hdr, sizeof(struct data_packet_header));
+        memcpy(packetbuf_hdrptr() + sizeof(struct data_packet_header), &tc, sizeof(struct tree_connection));
+    } else {
+        packetbuf_hdralloc(sizeof(struct data_packet_header));
+        memcpy(packetbuf_hdrptr(), &hdr, sizeof(struct data_packet_header));
+    }
 
     return unicast_send(&state->uc, &state->parent);
 }
 
-void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
+void uc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     // Get the pointer to the overall structure my_collect_conn from its field uc
     struct node_state* state = (struct node_state*)(((uint8_t*)uc_conn) -
                                     offsetof(struct node_state, uc));
 
     struct data_packet_header hdr;
 
-    if (packetbuf_datalen() < sizeof(struct data_packet_header)) {
-        printf("too short unicast packet %d\n", packetbuf_datalen());
-        return;
-    }
+    // if (packetbuf_datalen() < sizeof(struct data_packet_header)) {
+    //     printf("too short unicast packet %d\n", packetbuf_datalen());
+    //     return;
+    // }
 
     memcpy(&hdr, packetbuf_dataptr(), sizeof(struct data_packet_header));
      // if this is the sink
      if (conn->sink){
+         uint8_t piggy_len = &hdr->pyggi_len;
          packetbuf_hdrreduce(sizeof(struct data_packet_header));
+         if (pyggi_len > 0) {  // it mens there is some piggybacking
+             // read the piggyybacked information and update the tree dictionary
+             struct tree_connection piggy_info;
+             for (size_t i = 0; i < pyggi_len; i++) {
+                 memcpy(&piggy_info, packetbuf_dataptr(), sizeof(struct tree_connection));
+                 // TODO: add piggy info to dictionary
+             }
+         }
+         // application receive callback
          conn->callbacks->recv(&hdr.source, hdr.hops +1 );
      }else{
-         // update struct
+         uint8_t piggy_flag = 0 // TODO:put here a call to some function that decides if to do piggyback
+          if (piggy_flag) {
+              // alloc some more space in the header and copy the piggyback information
+              packetbuf_hdralloc(sizeof(struct tree_connection));
+              struct tree_connection tc = {.node=linkaddr_node_addr, .parent=state->parent};
+              memcpy(packetbuf_dataptr() + sizeof(struct data_packet_header), &tc, sizeof(struct tree_connection));
+          }
+         // update header hop count
          hdr.hops = hdr.hops + 1;
          memcpy(packetbuf_dataptr(), &hdr, sizeof(struct data_packet_header));
          // copy updated struct to packet header
