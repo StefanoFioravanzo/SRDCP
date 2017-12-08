@@ -1,11 +1,12 @@
-#ifndef SOURCE_ROUTING_H
-#define SOURCE_ROUTING_H
+#ifndef MY_COLLECT_H
+#define MY_COLLECT_H
 
 #include <stdbool.h>
-#include "contiki.h"
-#include "net/rime/rime.h"
-#include "net/netstack.h"
-#include "core/net/linkaddr.h"
+#include <stdlib.h>
+// #include "contiki.h"
+// #include "net/rime/rime.h"
+// #include "net/netstack.h"
+// #include "core/net/linkaddr.h"
 
 #define MAX_NODES 30
 #define MAX_PATH_LENGTH 10
@@ -24,8 +25,25 @@ enum packet_type {
     topology_report = 2
 };
 
+// --------------------------------------------------------------------
+//                              DICT STRUCTS
+// --------------------------------------------------------------------
+
+typedef struct DictEntry {
+    linkaddr_t key;  // the address of the node
+    linkaddr_t value;  // the address of the parent
+} DictEntry;
+
+typedef struct TreeDict {
+    int len;
+    int cap;
+    DictEntry entries[MAX_NODES];
+} TreeDict;
+
+// --------------------------------------------------------------------
+
 /* Connection object */
-typedef struct node_state {
+typedef struct my_collect_conn {
     // broadcast connection object
     struct broadcast_conn bc;
     // unicast connection object
@@ -38,7 +56,7 @@ typedef struct node_state {
     struct ctimer beacon_timer;
     struct ctimer topology_report_timer;
     // metric: hop count
-    uint16_t hop_count;
+    uint16_t metric;
     // sequence number of the tree protocol
     uint16_t beacon_seqn;
     // true if this node is the sink
@@ -46,7 +64,12 @@ typedef struct node_state {
     // tree table (used only in the sink)
     // TODO: can we put this in some structure usd only by the sink?
     TreeDict routing_table;
-} node_state;
+} my_collect_conn;
+
+struct my_collect_callbacks {
+  void (* recv)(const linkaddr_t *originator, uint8_t hops);
+  void (* sr_recv)(struct my_collect_conn *ptr, uint8_t hops);
+};
 
 // receiver functions for communications channels
 void bc_recv(struct broadcast_conn*, const linkaddr_t*);
@@ -62,40 +85,59 @@ void dedicated_topology_report_timer_cb(void*);
 
 // -------- UTIL FUNCTIONS --------
 
+void my_collect_open(my_collect_conn*, uint16_t, bool, const struct my_collect_callbacks*);
+
 // sends a broadcast beacon using the current sequence number and hop count
-void send_beacon(node_state*);
+void send_beacon(my_collect_conn*);
 void bc_recv(struct broadcast_conn*, const linkaddr_t*);
-int send_data(node_state*);
+int my_collect_send(my_collect_conn*);
 void uc_recv(struct unicast_conn*, const linkaddr_t*);
-void send_topology_report()
+void send_topology_report();
+
+/*
+ Source routing send function:
+ Params:
+    c: pointer to the collection connection structure
+    dest: pointer to the destination address
+ Returns non-zero if the packet could be sent, zero otherwise.
+*/
+int sr_send(struct my_collect_conn*, const linkaddr_t*);
+/*
+ Source routing recv function callback:
+ This function must be part of the callbacks structure of the my_collect_conn connection. It should be called when a source routing packet reaches its destination.
+ Params:
+    c: pointer to the collection connection structure
+    hops: number of route hops from the sink to the destination
+*/
+void (* sr_recv)(struct my_collect_conn *c, uint8_t hops);
 
 // -------- MESSAGE STRUCTURES --------
 
 struct beacon_message {
     uint16_t seqn;
-    uint16_t hop_count;
+    uint16_t metric;
 } __attribute__((packed));
 typedef struct beacon_message beacon_message;
 
 struct data_packet_header {
-    packet_type type;
+    enum packet_type type;
     linkaddr_t source;
     uint8_t hops;
-    uint8_t pyggi_len;  // 0 in case there is no piggybacking
+    uint8_t piggy_len;  // 0 in case there is no piggybacking
 } __attribute__((packed));
 typedef struct data_packet_header data_packet_header;
 
 struct tree_connection {
     linkaddr_t node;
     linkaddr_t parent;
-};
+} __attribute__((packed));
 typedef struct tree_connection tree_connection;
 
 struct topology_report_header {
-    packet_type type;
+    enum packet_type type;
     // number of
     uint8_t data_len;
 } __attribute__((packed));
 typedef struct topology_report_header topology_report_header;
 
-#endif // SOURCE_ROUTING_H
+#endif // MY_COLLECT_H

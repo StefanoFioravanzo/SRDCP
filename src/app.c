@@ -49,13 +49,16 @@ static struct my_collect_callbacks node_cb = {
   .sr_recv = sr_recv_cb,
 };
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(app_process, ev, data) 
+PROCESS_THREAD(app_process, ev, data)
 {
   static struct etimer periodic;
   static struct etimer rnd;
   static test_msg_t msg = {.seqn=0};
   static uint8_t dest_low = 2;
-  static linkaddr_t dest = {0x00, 0x00};
+  // static linkaddr_t dest = {{0x00, 0x00}};
+  static linkaddr_t dest;
+  dest.u8[0] = 0x00;
+  dest.u8[1] = 0x00;
   static int ret;
 
   PROCESS_BEGIN();
