@@ -83,9 +83,9 @@ void my_collect_open(my_collect_conn* conn, uint16_t channels,
     conn->callbacks = callbacks;
 
     if (is_sink) {
-        conn->sink = 1;
+        conn->is_sink = 1;
     } else {
-        conn->sink = 0;
+        conn->is_sink = 0;
     }
 
     // open the connection primitives
@@ -93,7 +93,7 @@ void my_collect_open(my_collect_conn* conn, uint16_t channels,
     unicast_open(&conn->uc, channels + 1, &uc_cb);
 
     // in case this is the sink, start the beacon propagation process
-    if (conn->sink) {
+    if (conn->is_sink) {
         conn->metric = 0;
 
         // initialize routing table
@@ -116,7 +116,7 @@ void beacon_timer_cb(void* ptr) {
     my_collect_conn* conn = ptr;
     send_beacon(conn);
     // in case this is the sink, schedule next broadcast in random time
-    if (conn->sink) {
+    if (conn->is_sink) {
         ctimer_set(&conn->beacon_timer, BEACON_INTERVAL, beacon_timer_cb, conn);
     }
 }
@@ -259,7 +259,7 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
 
     memcpy(&hdr, packetbuf_dataptr(), sizeof(data_packet_header));
      // if this is the sink
-     if (conn->sink){
+     if (conn->is_sink){
          uint8_t piggy_len = hdr.piggy_len;
          packetbuf_hdrreduce(sizeof(data_packet_header));
          if (piggy_len > 0) {  // it mens there is some piggybacking
@@ -291,5 +291,37 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
 
 
 int sr_send(struct my_collect_conn *conn, const linkaddr_t *dest) {
-    return 1;
+    // the sink sends a packet to `dest`.
+
+    if (!conn->is_sink) {
+        // if this is an ordinary node
+        return 0;
+    }
+
+    // need to build the route to the destination node.
+    // NOTE: This is a mess since I cannot do dynamic memory allocation. Have to insert the path in the header backwards?
+    // count the path lenght from sink to destination node
+    uint8_t path_len = 0;
+    linkaddr_t next;  // This will be the node in the path right after the sink.
+    linkadddr_t parent = &dest;
+    while (!likaddr_cmp(parent, sink)) {
+        next = parent;
+        parent = dict_find(&conn->routing_table, parent);
+        if (linkaddr_cmp(parent, linkaddr_null)) {
+            return 0;
+        }
+        path_len++;
+    }
+
+    // allocate enough space in the header for the path
+    packetbuf_hdralloc(sizeof(linkaddr_t)*path_len + sizeof(uint8_t));
+    memcpy(packetbuf_hdrptr(), path_len, sizeof(uint8_t));
+    int i;
+    parent = &dest;
+    // path in backward order
+    for (i = path_len-1; i > 0; i--) {  // path len because to insert the Nth element I do sizeof(linkaddr_t)*(N-1)
+        memcpy(packetbuf_hdrptr()+sizeof(uint8_t)+sizeof(linkaddr_t)*(i), parent, sizeof(linkaddr_t));
+        parent = dict_find(&conn->routing_table, parent);
+    }
+    unicast_send(&conn->uc, next);
 }

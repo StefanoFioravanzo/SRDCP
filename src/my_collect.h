@@ -60,7 +60,7 @@ typedef struct my_collect_conn {
     // sequence number of the tree protocol
     uint16_t beacon_seqn;
     // true if this node is the sink
-    uint8_t sink;  // 1: is_sink, 0: not_sink
+    uint8_t is_sink;  // 1: is_sink, 0: not_sink
     // tree table (used only in the sink)
     // TODO: can we put this in some structure usd only by the sink?
     TreeDict routing_table;
@@ -102,14 +102,7 @@ void send_topology_report();
  Returns non-zero if the packet could be sent, zero otherwise.
 */
 int sr_send(struct my_collect_conn*, const linkaddr_t*);
-/*
- Source routing recv function callback:
- This function must be part of the callbacks structure of the my_collect_conn connection. It should be called when a source routing packet reaches its destination.
- Params:
-    c: pointer to the collection connection structure
-    hops: number of route hops from the sink to the destination
-*/
-void (* sr_recv)(struct my_collect_conn *c, uint8_t hops);
+
 
 // -------- MESSAGE STRUCTURES --------
 
@@ -139,5 +132,6 @@ struct topology_report_header {
     uint8_t data_len;
 } __attribute__((packed));
 typedef struct topology_report_header topology_report_header;
+
 
 #endif // MY_COLLECT_H

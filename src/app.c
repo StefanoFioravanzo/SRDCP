@@ -141,8 +141,7 @@ static void recv_cb(const linkaddr_t *originator, uint8_t hops) {
     originator->u8[0], originator->u8[1], msg.seqn, hops);
 }
 /*---------------------------------------------------------------------------*/
-static void
-sr_recv_cb(struct my_collect_conn *ptr, uint8_t hops)
+static void sr_recv_cb(struct my_collect_conn *ptr, uint8_t hops)
 {
   test_msg_t sr_msg;
   if (packetbuf_datalen() != sizeof(test_msg_t)) {
