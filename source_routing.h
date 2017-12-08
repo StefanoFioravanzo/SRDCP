@@ -7,6 +7,9 @@
 #include "net/netstack.h"
 #include "core/net/linkaddr.h"
 
+#define MAX_NODES 30
+#define MAX_PATH_LENGTH 10
+
 #define BEACON_INTERVAL (CLOCK_SECOND*60)
 #define BEACON_FORWARD_DELAY (random_rand() * CLOCK_SECOND)
 // time after which the node has to have completed the parent communication
@@ -33,32 +36,38 @@ typedef struct node_state {
     linkaddr_t parent;
     // global timer
     struct ctimer beacon_timer;
+    struct ctimer topology_report_timer;
     // metric: hop count
     uint16_t hop_count;
     // sequence number of the tree protocol
     uint16_t beacon_seqn;
     // true if this node is the sink
     uint8_t sink;  // 1: is_sink, 0: not_sink
+    // tree table (used only in the sink)
+    // TODO: can we put this in some structure usd only by the sink?
+    TreeDict routing_table;
 } node_state;
 
 // receiver functions for communications channels
-void bc_recv(struct broadcast_conn *conn, const linkaddr_t *sender);
-void uc_recv(struct unicast_conn *c, const linkaddr_t *from);
+void bc_recv(struct broadcast_conn*, const linkaddr_t*);
+void uc_recv(struct unicast_conn*, const linkaddr_t*);
 
 // Callbacks structure to initialize the communication channels
 struct broadcast_callbacks bc_cb = {.recv=bc_recv};
 struct unicast_callbacks uc_cb = {.recv=uc_recv};
 
 // timers Callbacks
-void beacon_timer_cb(void* ptr);
+void beacon_timer_cb(void*);
+void dedicated_topology_report_timer_cb(void*);
 
 // -------- UTIL FUNCTIONS --------
 
 // sends a broadcast beacon using the current sequence number and hop count
-void send_beacon(struct node_state*);
+void send_beacon(node_state*);
 void bc_recv(struct broadcast_conn*, const linkaddr_t*);
-int send_data(struct node_state*);
+int send_data(node_state*);
 void uc_recv(struct unicast_conn*, const linkaddr_t*);
+void send_topology_report()
 
 // -------- MESSAGE STRUCTURES --------
 
@@ -84,8 +93,8 @@ typedef struct tree_connection tree_connection;
 
 struct topology_report_header {
     packet_type type;
-    // Need just parent because I know who is the sender TODO: check this
-    linkaddr_t parent;
+    // number of
+    uint8_t data_len;
 } __attribute__((packed));
 typedef struct topology_report_header topology_report_header;
 

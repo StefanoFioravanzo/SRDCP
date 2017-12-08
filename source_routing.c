@@ -6,6 +6,7 @@
 #include "net/netstack.h"
 #include <stdio.h>
 #include "core/net/linkaddr.h"
+
 #include "source_routing.h"
 #include "dictionary.c"
 
@@ -34,7 +35,9 @@ void connection_open(node_state* state, uint16_t channels,
 
         // initialize routing table
         //TODO: alloc here routing table
-
+        // no need to initialize since the first initialization is done
+        // during the first entry insert.
+        state->routing_table = {.len=0, .cap=MAX_NODES};
 
         // start a timer to send the beacon. Pass to the timer the state object
         ctimer_set(&state->beacon_timer, CLOCK_SECOND, beacon_timer_cb, state)
@@ -54,9 +57,40 @@ void beacon_timer_cb(void* ptr) {
     }
 }
 
+void dedicated_topology_report_timer_cb(void* ptr) {
+    node_state* state = ptr;
+    send_topology_report(state);
+
+    ctimer_set(&state->topology_report_timer,
+        PARENT_REFRESH_RATE,
+        dedicated_topology_report_timer_cb,
+        state);
+}
+
 /*
 ------------ SEND and RECEIVE functions ------------
 */
+
+void send_topology_report(node_state* state) {
+    packetbuf_clear();
+
+    // TODO: explore possibility of using data space instead of header.
+    // How would I increase data allocation space for the packet? E.g. similar to packetbuf_hdralloc()
+    // memcpy(packetbuf_dataptr(), &msg, sizeof(msg));
+    // packetbuf_set_datalen(sizeof(msg));
+
+    // No actual data in the packet, data present in the header
+
+    topology_report_header hdr = {.type=packet_type.topology_report};
+    tree_connection tc = {.node=linkaddr_node_addr, .parent=state->parent};
+
+    packetbuf_hdralloc(sizeof(topology_report_header) + sizeof(tree_connection));
+
+    memcpy(packetbuf_hdrptr(), &hdr, sizeof(topology_report_header));
+    memcpy(packetbuf_hdrptr() + sizeof(topology_report_header), &tc, sizeof(tree_connection));
+
+    return unicast_send(&state->uc, &state->parent);
+}
 
 void send_beacon(node_state* state) {
     // init beacon message
