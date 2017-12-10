@@ -19,6 +19,8 @@
 
 #define RSSI_REJECTION_TRESHOLD -95
 
+static linkaddr_t sink_addr = {{0x01, 0x00}}; // node 1 will be our sink
+
 enum packet_type {
     data_packet = 0,
     pyggiback = 1,

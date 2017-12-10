@@ -303,11 +303,12 @@ int sr_send(struct my_collect_conn *conn, const linkaddr_t *dest) {
     // count the path lenght from sink to destination node
     uint8_t path_len = 0;
     linkaddr_t next;  // This will be the node in the path right after the sink.
-    linkadddr_t parent = &dest;
-    while (!likaddr_cmp(parent, sink)) {
-        next = parent;
-        parent = dict_find(&conn->routing_table, parent);
-        if (linkaddr_cmp(parent, linkaddr_null)) {
+    linkaddr_t parent;
+    linkaddr_copy(&parent, dest);
+    while (!linkaddr_cmp(&parent, &sink_addr)) {
+        linkaddr_copy(&next, &parent);
+        parent = dict_find(&conn->routing_table, &parent);
+        if (linkaddr_cmp(&parent, &linkaddr_null)) {
             return 0;
         }
         path_len++;
@@ -315,13 +316,13 @@ int sr_send(struct my_collect_conn *conn, const linkaddr_t *dest) {
 
     // allocate enough space in the header for the path
     packetbuf_hdralloc(sizeof(linkaddr_t)*path_len + sizeof(uint8_t));
-    memcpy(packetbuf_hdrptr(), path_len, sizeof(uint8_t));
+    memcpy(packetbuf_hdrptr(), &path_len, sizeof(uint8_t));
     int i;
-    parent = &dest;
+    linkaddr_copy(&parent, dest);
     // path in backward order
     for (i = path_len-1; i > 0; i--) {  // path len because to insert the Nth element I do sizeof(linkaddr_t)*(N-1)
-        memcpy(packetbuf_hdrptr()+sizeof(uint8_t)+sizeof(linkaddr_t)*(i), parent, sizeof(linkaddr_t));
-        parent = dict_find(&conn->routing_table, parent);
+        memcpy(packetbuf_hdrptr()+sizeof(uint8_t)+sizeof(linkaddr_t)*(i), &parent, sizeof(linkaddr_t));
+        parent = dict_find(&conn->routing_table, &parent);
     }
-    unicast_send(&conn->uc, next);
+    return unicast_send(&conn->uc, &next);
 }
