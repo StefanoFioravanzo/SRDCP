@@ -8,6 +8,7 @@
 #include "core/net/linkaddr.h"
 
 #include "my_collect.h"
+#include "unicast_receive.h"
 
 // -------------------------------------------------------------------------------------------------
 //                                      DICT IMPLEMENTATION
@@ -123,7 +124,7 @@ void beacon_timer_cb(void* ptr) {
 
 void dedicated_topology_report_timer_cb(void* ptr) {
     my_collect_conn* conn = ptr;
-    send_topology_report(conn);
+    send_topology_report(conn, 0);  // 0: first send, no forwarding
 
     ctimer_set(&conn->topology_report_timer,
         PARENT_REFRESH_RATE,
@@ -135,7 +136,14 @@ void dedicated_topology_report_timer_cb(void* ptr) {
 ------------ SEND and RECEIVE functions ------------
 */
 
-void send_topology_report(my_collect_conn* conn) {
+void send_topology_report(my_collect_conn* conn, uint8_t forward) {
+    if (forward == 1) {
+            // TODO: improve performance by appending topology report to forwarding packet
+            unicast_send(&conn->uc, &conn->parent);
+            return;
+    }
+    // else
+
     packetbuf_clear();
 
     // TODO: explore possibility of using data space instead of header.
@@ -149,7 +157,6 @@ void send_topology_report(my_collect_conn* conn) {
     tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
 
     packetbuf_hdralloc(sizeof(topology_report_header) + sizeof(tree_connection));
-
     memcpy(packetbuf_hdrptr(), &hdr, sizeof(topology_report_header));
     memcpy(packetbuf_hdrptr() + sizeof(topology_report_header), &tc, sizeof(tree_connection));
 
@@ -218,7 +225,7 @@ int my_collect_send(my_collect_conn *conn) {
     // TODO: decide whether to send pyggiback or not.
     uint8_t piggy_flag = 0;  // TODO:put here a call to some function that decides if to do piggyback
     // initialize header
-    data_packet_header hdr = {.type=pyggiback, .source=linkaddr_node_addr,
+    data_packet_header hdr = {.type=data_packet, .source=linkaddr_node_addr,
                                     .hops=0, .piggy_len=0 };
     if (piggy_flag) {
         hdr.piggy_len = 1;
@@ -249,44 +256,29 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
     my_collect_conn* conn = (my_collect_conn*)(((uint8_t*)uc_conn) -
                                     offsetof(my_collect_conn, uc));
 
-    data_packet_header hdr;
-
     //TODO:?
     // if (packetbuf_datalen() < sizeof(struct data_packet_header)) {
     //     printf("too short unicast packet %d\n", packetbuf_datalen());
     //     return;
     // }
 
-    memcpy(&hdr, packetbuf_dataptr(), sizeof(data_packet_header));
-     // if this is the sink
-     if (conn->is_sink){
-         uint8_t piggy_len = hdr.piggy_len;
-         packetbuf_hdrreduce(sizeof(data_packet_header));
-         if (piggy_len > 0) {  // it mens there is some piggybacking
-             // read the piggyybacked information and update the tree dictionary
-             tree_connection piggy_info;
-             size_t i;
-             for (i = 0; i < piggy_len; i++) {
-                 memcpy(&piggy_info, packetbuf_dataptr(), sizeof(tree_connection));
-                 // TODO: add piggy info to dictionary
-             }
-         }
-         // application receive callback
-         conn->callbacks->recv(&hdr.source, hdr.hops +1 );
-     }else{
-         uint8_t piggy_flag = 0; // TODO:put here a call to some function that decides if to do piggyback
-          if (piggy_flag) {
-              // alloc some more space in the header and copy the piggyback information
-              packetbuf_hdralloc(sizeof(tree_connection));
-              tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
-              memcpy(packetbuf_dataptr() + sizeof(data_packet_header), &tc, sizeof(tree_connection));
-          }
-         // update header hop count
-         hdr.hops = hdr.hops + 1;
-         memcpy(packetbuf_dataptr(), &hdr, sizeof(data_packet_header));
-         // copy updated struct to packet header
-         unicast_send(&conn->uc, &conn->parent);
-     }
+    // Read packet type
+    enum packet_type pt;
+    memcpy(&pt, packetbuf_hdrptr(), sizeof(int));
+
+    switch (pt) {
+        case data_packet:
+            many_to_one(conn, sender);
+            break;
+        case topology_report:
+            send_topology_report(conn, 1);  // 1: forwarding set to true
+            break;
+        case source_routing:
+            one_to_many(conn, sender);
+            break;
+        default:
+            printf("Packet type not recognized.");
+    }
 }
 
 
@@ -315,13 +307,15 @@ int sr_send(struct my_collect_conn *conn, const linkaddr_t *dest) {
     }
 
     // allocate enough space in the header for the path
-    packetbuf_hdralloc(sizeof(linkaddr_t)*path_len + sizeof(uint8_t));
-    memcpy(packetbuf_hdrptr(), &path_len, sizeof(uint8_t));
+    packetbuf_hdralloc(sizeof(enum packet_type)+sizeof(linkaddr_t)*path_len + sizeof(uint8_t));
+    enum packet_type t = source_routing;
+    memcpy(packetbuf_hdrptr(), &t, sizeof(int));
+    memcpy(packetbuf_hdrptr()+sizeof(uint8_t), &path_len, sizeof(uint8_t));
     int i;
     linkaddr_copy(&parent, dest);
     // path in backward order
     for (i = path_len-1; i > 0; i--) {  // path len because to insert the Nth element I do sizeof(linkaddr_t)*(N-1)
-        memcpy(packetbuf_hdrptr()+sizeof(uint8_t)+sizeof(linkaddr_t)*(i), &parent, sizeof(linkaddr_t));
+        memcpy(packetbuf_hdrptr()+sizeof(int)+sizeof(uint8_t)+sizeof(linkaddr_t)*(i), &parent, sizeof(linkaddr_t));
         parent = dict_find(&conn->routing_table, &parent);
     }
     return unicast_send(&conn->uc, &next);

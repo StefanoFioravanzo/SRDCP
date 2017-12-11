@@ -23,8 +23,8 @@ static linkaddr_t sink_addr = {{0x01, 0x00}}; // node 1 will be our sink
 
 enum packet_type {
     data_packet = 0,
-    pyggiback = 1,
-    topology_report = 2
+    topology_report = 2,
+    source_routing = 3
 };
 
 // --------------------------------------------------------------------
@@ -94,7 +94,7 @@ void send_beacon(my_collect_conn*);
 void bc_recv(struct broadcast_conn*, const linkaddr_t*);
 int my_collect_send(my_collect_conn*);
 void uc_recv(struct unicast_conn*, const linkaddr_t*);
-void send_topology_report();
+void send_topology_report(my_collect_conn*, uint8_t);
 
 /*
  Source routing send function:
@@ -131,9 +131,14 @@ typedef struct tree_connection tree_connection;
 struct topology_report_header {
     enum packet_type type;
     // number of
-    uint8_t data_len;
+    // uint8_t data_len;
 } __attribute__((packed));
 typedef struct topology_report_header topology_report_header;
+
+struct source_routing_message {
+    uint16_t seqn;
+} __attribute__((packed));
+typedef struct source_routing_message source_routing_message;
 
 
 #endif // MY_COLLECT_H
