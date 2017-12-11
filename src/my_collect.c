@@ -74,6 +74,14 @@ int dict_add(TreeDict* dict, const linkaddr_t key, linkaddr_t value) {
 }
 // -------------------------------------------------------------------------------------------------
 
+// receiver functions for communications channels
+void bc_recv(struct broadcast_conn*, const linkaddr_t*);
+void uc_recv(struct unicast_conn*, const linkaddr_t*);
+
+// Callbacks structure to initialize the communication channels
+struct broadcast_callbacks bc_cb = {.recv=bc_recv};
+struct unicast_callbacks uc_cb = {.recv=uc_recv};
+
 void my_collect_open(my_collect_conn* conn, uint16_t channels,
                     bool is_sink, const struct my_collect_callbacks* callbacks)
 {

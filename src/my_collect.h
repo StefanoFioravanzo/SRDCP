@@ -19,7 +19,7 @@
 
 #define RSSI_REJECTION_TRESHOLD -95
 
-static linkaddr_t sink_addr = {{0x01, 0x00}}; // node 1 will be our sink
+static const linkaddr_t sink_addr = {{0x01, 0x00}}; // node 1 will be our sink
 
 enum packet_type {
     data_packet = 0,
@@ -72,14 +72,6 @@ struct my_collect_callbacks {
   void (* recv)(const linkaddr_t *originator, uint8_t hops);
   void (* sr_recv)(struct my_collect_conn *ptr, uint8_t hops);
 };
-
-// receiver functions for communications channels
-void bc_recv(struct broadcast_conn*, const linkaddr_t*);
-void uc_recv(struct unicast_conn*, const linkaddr_t*);
-
-// Callbacks structure to initialize the communication channels
-struct broadcast_callbacks bc_cb = {.recv=bc_recv};
-struct unicast_callbacks uc_cb = {.recv=uc_recv};
 
 // timers Callbacks
 void beacon_timer_cb(void*);

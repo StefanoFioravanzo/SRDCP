@@ -1,3 +1,13 @@
+#include <stdbool.h>
+#include "contiki.h"
+#include "lib/random.h"
+#include "net/rime/rime.h"
+#include "leds.h"
+#include "net/netstack.h"
+#include <stdio.h>
+#include "core/net/linkaddr.h"
+
+#include "my_collect.h"
 #include "unicast_receive.h"
 
 // in case this is a normal node, forward to parent
@@ -49,11 +59,11 @@ void one_to_many(my_collect_conn *conn, const linkaddr_t *sender) {
     linkaddr_t current;
     linkaddr_t next;
 
-    memcpy(&lpath_len, packetbuf_hdrptr(), sizeof(uint8_t));
+    memcpy(&path_len, packetbuf_hdrptr(), sizeof(uint8_t));
     memcpy(&current, packetbuf_hdrptr() + sizeof(uint8_t), sizeof(linkaddr_t));
 
-    if (linkaddr_cmp(&current, &rimeaddr_node_addr)) {
-        if (len == 1) {
+    if (linkaddr_cmp(&current, &linkaddr_node_addr)) {
+        if (path_len == 1) {
             // this is the last hop
             // read message data and print it
             uint16_t seqn;
@@ -69,7 +79,7 @@ void one_to_many(my_collect_conn *conn, const linkaddr_t *sender) {
             path_len = path_len - 1;
             memcpy(packetbuf_hdrptr(), &path_len, sizeof(uint8_t));
 
-            memcpy(&next, packetbuf_hdrptr()+sizeof(uint8_t));
+            memcpy(&next, packetbuf_hdrptr()+sizeof(uint8_t), sizeof(linkaddr_t));
             unicast_send(&conn->uc, &next);
         }
     } else {
