@@ -10,6 +10,32 @@
 #include "my_collect.h"
 #include "unicast_receive.h"
 
+/*
+Data collection > multi-hop source routing protocol
+
+Traffic patterns:
+
+- topology protocol: build tree with beacons.   V
+
+- data packets:
+    - upward: from node to sink     V
+    - downward: from sink to node
+
+- Build the routing table:
+	- piggybacking: attach header in data_collection
+	- topology reports: ad-hoc report packets.     V
+
+TODO: node sends topology report after joining the network (or changing the parent?)
+TODO: detect loop when building the path on the sink.
+TODO: Beware of collisions mostly during bootstrap when nodes join the network
+    or change the parent. May have collisions between dedicated topology reports and beacons.
+    How to avoid this?
+    >> Idea: Have two un synced random frames.
+    The first range of time is used for sink beacons, the second for sending topology report.
+    This considering instantaneous transmission time (wrt time ranges).
+TODO: Test protocol both with NullRDC and ContikiMAC.
+TODO: Assume a maximum path length and a max number of nodes.
+
 // -------------------------------------------------------------------------------------------------
 //                                      DICT IMPLEMENTATION
 // -------------------------------------------------------------------------------------------------
@@ -144,6 +170,16 @@ void dedicated_topology_report_timer_cb(void* ptr) {
 ------------ SEND and RECEIVE functions ------------
 */
 
+/*
+    The node sends a topology report to its parent.
+    Topology report is sent when the node changes its parent or after too much
+    silence from the application layer (no piggybacking available).
+
+    This method is also used for forwarding toward the sink a topology report
+    received from a node.
+    TODO: explore the possibility of appending this node's topology report (if needed)
+    during forwarding to reduce packet traffic.
+*/
 void send_topology_report(my_collect_conn* conn, uint8_t forward) {
     if (forward == 1) {
             // TODO: improve performance by appending topology report to forwarding packet
@@ -171,6 +207,9 @@ void send_topology_report(my_collect_conn* conn, uint8_t forward) {
     unicast_send(&conn->uc, &conn->parent);
 }
 
+/*
+    The node sends a beacon in broadcast to everyone.
+*/
 void send_beacon(my_collect_conn* conn) {
     // init beacon message
     beacon_message beacon = {.seqn = conn->beacon_seqn, .metric = conn->metric};
@@ -181,6 +220,13 @@ void send_beacon(my_collect_conn* conn) {
     broadcast_send(&conn->bc);
 }
 
+/*
+    Receviing BEACON during topology construction (many-to-one).
+    The sink is sending the beacon periodically and the nodes forward it to everyone.
+    Each node updates its parent based on metric.
+
+    When node updates its parent it sends a dedidated topology report.
+*/
 void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     beacon_message beacon;
     int8_t rssi;
@@ -201,7 +247,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
         beacon.seqn, beacon.metric, rssi);
 
     if (rssi < RSSI_REJECTION_TRESHOLD) {
-        printf("packet reject due to low rssi");
+        printf("packet rejected due to low rssi");
         return;
     }
 
@@ -218,10 +264,13 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
             return;
       }
     }
-    // update metric
+    // update metric (hop count)
     conn->metric = beacon.metric + 1;
     // update parent
     linkaddr_copy(&conn->parent, sender);
+
+    // since we have updated the parent, send the dedicated topology report.
+    send_topology_report(conn, 0);
 
     // Retransmit the beacon since the metric has been updated.
     // Introduce small random delay with the BEACON_FORWARD_DELAY to avoid synch
@@ -229,18 +278,17 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     ctimer_set(&conn->beacon_timer, BEACON_FORWARD_DELAY, beacon_timer_cb, conn);
 }
 
+/*
+    Data collection protocol. Here the node sends some data to its parent to reach the sink.
+    If it is necessary the node atatches routing information (its parent's address) into
+    the header (piggybacking).
+    The data posrtion of the packetbuf is already filled by the application layer.
+*/
 int my_collect_send(my_collect_conn *conn) {
-    // TODO: decide whether to send pyggiback or not.
-    uint8_t piggy_flag = 0;  // TODO:put here a call to some function that decides if to do piggyback
+    uint8_t piggy_flag = 1;  // TODO:put here a call to some function that decides if to do piggyback
     // initialize header
     data_packet_header hdr = {.type=data_packet, .source=linkaddr_node_addr,
                                     .hops=0, .piggy_len=0 };
-    if (piggy_flag) {
-        hdr.piggy_len = 1;
-    }
-
-    // set current pyggibacking structure
-    tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
 
     if (linkaddr_cmp(&conn->parent, &linkaddr_null)) {  // in case the node has no parent
         return 0;
@@ -248,6 +296,10 @@ int my_collect_send(my_collect_conn *conn) {
 
     // allocate space for the header
     if (piggy_flag) {
+        hdr.piggy_len = 1;
+        // topology information to be piggybacked
+        tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
+
         packetbuf_hdralloc(sizeof(data_packet_header) + sizeof(tree_connection));
         memcpy(packetbuf_hdrptr(), &hdr, sizeof(data_packet_header));
         memcpy(packetbuf_hdrptr() + sizeof(data_packet_header), &tc, sizeof(tree_connection));
@@ -259,6 +311,16 @@ int my_collect_send(my_collect_conn *conn) {
     return unicast_send(&conn->uc, &conn->parent);
 }
 
+/*
+    General node's unicast receive function.
+    Based on the packet type read from the first byte in the header
+    a specific function is caled to handle the logic.
+
+    Here we expect three types of packets:
+        - upward traffic: from node to sink data packet passing through parents.
+        - topology report: from node to sink passing through parents.
+        - downward traffic: from sink to node using path computed at the sink.
+*/
 void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
     // Get the pointer to the overall structure my_collect_conn from its field uc
     my_collect_conn* conn = (my_collect_conn*)(((uint8_t*)uc_conn) -
@@ -270,26 +332,31 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
     //     return;
     // }
 
-    // Read packet type
+    // Read packet type from first byte of the header.
     enum packet_type pt;
     memcpy(&pt, packetbuf_hdrptr(), sizeof(int));
 
     switch (pt) {
         case data_packet:
-            many_to_one(conn, sender);
+            forward_upward_data(conn, sender);
             break;
         case topology_report:
             send_topology_report(conn, 1);  // 1: forwarding set to true
             break;
         case source_routing:
-            one_to_many(conn, sender);
+            forward_downward_data(conn, sender);
             break;
         default:
             printf("Packet type not recognized.");
     }
 }
 
-
+/*
+    Send data from the sink to a specific node in the network.
+    First, the sink has to compute the path from its routing table (avoiding loops)
+    Second, the sink creates a header with all the path and sends the packet to the first node
+    in the path.
+*/
 int sr_send(struct my_collect_conn *conn, const linkaddr_t *dest) {
     // the sink sends a packet to `dest`.
 

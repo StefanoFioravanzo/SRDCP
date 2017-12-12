@@ -40,6 +40,7 @@ typedef struct TreeDict {
     int len;
     int cap;
     DictEntry entries[MAX_NODES];
+    linkaddr_t tree_path[MAX_PATH_LENGTH];
 } TreeDict;
 
 // --------------------------------------------------------------------

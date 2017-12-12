@@ -10,9 +10,16 @@
 #include "my_collect.h"
 #include "unicast_receive.h"
 
-// in case this is a normal node, forward to parent
-// in case this is the sink, collect header and call callback to sent data to application layer
-void many_to_one(my_collect_conn *conn, const linkaddr_t *sender) {
+/*
+    Forwarding or collection of data sent from one node to the sink.
+
+        - Sink: Counts the number of topology informations with piggy_len present in the header.
+        Then calls the callback to the application layer to retrieve the packet data.
+        - Node: A node just forwards upwards the message. In case it wants to piggyback
+        some topology information (its parent) it increases header size and writes in the header
+        its parent.
+*/
+void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
     data_packet_header hdr;
     memcpy(&hdr, packetbuf_dataptr(), sizeof(data_packet_header));
 
@@ -32,7 +39,7 @@ void many_to_one(my_collect_conn *conn, const linkaddr_t *sender) {
         // application receive callback
         conn->callbacks->recv(&hdr.source, hdr.hops +1 );
     }else{
-        uint8_t piggy_flag = 0; // TODO:put here a call to some function that decides if to do piggyback
+        uint8_t piggy_flag = 1; // TODO:put here a call to some function that decides if to do piggyback
          if (piggy_flag) {
              //TODO: update piggy_len field in the header struct
              hdr.piggy_len = hdr.piggy_len + 1;
@@ -49,9 +56,12 @@ void many_to_one(my_collect_conn *conn, const linkaddr_t *sender) {
     }
 }
 
-// from the sink to a single node
-// initiated by sr_send() function. Unpack the header, check next destination, reduce the header, send.
-void one_to_many(my_collect_conn *conn, const linkaddr_t *sender) {
+/*
+    Packet forwarding from a node to another node in the path computed by the sink.
+    The node first checks that it is indeed the next hop in the path, then reduces the
+    header (removing itself) and sends the packet to the next node in the path.
+*/
+void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
 
     // get the lenght of the path and check the this is the correct hop
     // (that this is the node of the next address in the path)
@@ -66,12 +76,13 @@ void one_to_many(my_collect_conn *conn, const linkaddr_t *sender) {
         if (path_len == 1) {
             // this is the last hop
             // read message data and print it
-            uint16_t seqn;
-            memcpy(&seqn, packetbuf_dataptr(), sizeof(uint16_t));
-            printf("Node %02x:%02x: seqn %d from sink\n",
-                    linkaddr_node_addr.u8[0],
-                    linkaddr_node_addr.u8[1],
-                    seqn);
+            // uint16_t seqn;
+            // memcpy(&seqn, packetbuf_dataptr(), sizeof(uint16_t));
+            // printf("Node %02x:%02x: seqn %d from sink\n",
+            //         linkaddr_node_addr.u8[0],
+            //         linkaddr_node_addr.u8[1],
+            //         seqn);
+            conn->callbacks->sr_recv(conn, hdr.hops +1 );
         } else {
             // if the next hop is indeed this node
             // reduce header and decrease path length
