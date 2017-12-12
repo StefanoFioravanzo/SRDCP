@@ -36,6 +36,8 @@ TODO: Beware of collisions mostly during bootstrap when nodes join the network
 TODO: Test protocol both with NullRDC and ContikiMAC.
 TODO: Assume a maximum path length and a max number of nodes.
 
+*/
+
 // -------------------------------------------------------------------------------------------------
 //                                      DICT IMPLEMENTATION
 // -------------------------------------------------------------------------------------------------
