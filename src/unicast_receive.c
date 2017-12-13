@@ -20,13 +20,13 @@
         its parent.
 */
 void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
-    data_packet_header hdr;
-    memcpy(&hdr, packetbuf_dataptr(), sizeof(data_packet_header));
+    upward_data_packet_header hdr;
+    memcpy(&hdr, packetbuf_dataptr(), sizeof(upward_data_packet_header));
 
     // if this is the sink
     if (conn->is_sink){
         uint8_t piggy_len = hdr.piggy_len;
-        packetbuf_hdrreduce(sizeof(data_packet_header));
+        packetbuf_hdrreduce(sizeof(upward_data_packet_header));
         if (piggy_len > 0) {  // it mens there is some piggybacking
             // read the piggyybacked information and update the tree dictionary
             tree_connection piggy_info;
@@ -46,11 +46,11 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
              // alloc some more space in the header and copy the piggyback information
              packetbuf_hdralloc(sizeof(tree_connection));
              tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
-             memcpy(packetbuf_dataptr() + sizeof(data_packet_header), &tc, sizeof(tree_connection));
+             memcpy(packetbuf_dataptr() + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
          }
         // update header hop count
         hdr.hops = hdr.hops + 1;
-        memcpy(packetbuf_dataptr(), &hdr, sizeof(data_packet_header));
+        memcpy(packetbuf_dataptr(), &hdr, sizeof(upward_data_packet_header));
         // copy updated struct to packet header
         unicast_send(&conn->uc, &conn->parent);
     }
@@ -63,17 +63,15 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
 */
 void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
 
-    // get the lenght of the path and check the this is the correct hop
-    // (that this is the node of the next address in the path)
-    uint8_t path_len;
-    linkaddr_t current;
-    linkaddr_t next;
+    linkaddr_t addr;
+    downward_data_packet_header hdr;
 
-    memcpy(&path_len, packetbuf_hdrptr(), sizeof(uint8_t));
-    memcpy(&current, packetbuf_hdrptr() + sizeof(uint8_t), sizeof(linkaddr_t));
+    memcpy(&hdr, packetbuf_hdrptr(), sizeof(downward_data_packet_header));
+    // Get first address in path
+    memcpy(&addr, packetbuf_hdrptr() + sizeof(downward_data_packet_header), sizeof(linkaddr_t));
 
-    if (linkaddr_cmp(&current, &linkaddr_node_addr)) {
-        if (path_len == 1) {
+    if (linkaddr_cmp(&addr, &linkaddr_node_addr)) {
+        if (hdr.path_len == 1) {
             // this is the last hop
             // read message data and print it
             // uint16_t seqn;
@@ -87,11 +85,11 @@ void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
             // if the next hop is indeed this node
             // reduce header and decrease path length
             packetbuf_hdrreduce(sizeof(linkaddr_t));
-            path_len = path_len - 1;
-            memcpy(packetbuf_hdrptr(), &path_len, sizeof(uint8_t));
-
-            memcpy(&next, packetbuf_hdrptr()+sizeof(uint8_t), sizeof(linkaddr_t));
-            unicast_send(&conn->uc, &next);
+            hdr.path_len = hdr.path_len - 1;
+            memcpy(packetbuf_hdrptr(), &hdr, sizeof(downward_data_packet_header));
+            // get next addr in path
+            memcpy(&addr, packetbuf_hdrptr()+sizeof(downward_data_packet_header), sizeof(linkaddr_t));
+            unicast_send(&conn->uc, &addr);
         }
     } else {
         // TODO: error

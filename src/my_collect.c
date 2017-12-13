@@ -55,7 +55,12 @@ int dict_find_index(TreeDict* dict, const linkaddr_t key) {
 
 linkaddr_t dict_find(TreeDict* dict, const linkaddr_t *key) {
     int idx = dict_find_index(dict, *key);
-    linkaddr_t ret = (idx == -1 ? linkaddr_null : dict->entries[idx].value);
+    linkaddr_t ret;
+    if (idx == -1) {
+        linkaddr_copy(&ret, &linkaddr_null);
+    } else {
+        linkaddr_copy(&ret, &dict->entries[idx].value);
+    }
     return ret;
 }
 
@@ -73,33 +78,80 @@ int dict_add(TreeDict* dict, const linkaddr_t key, linkaddr_t value) {
        return 0;
    }
 
-   // first initialization
-   // if (dict->len == 0) {
-   //     dict->len = 1;
-   //     dict->cap = 10;
-   //     // alloc array of one entry
-   //     // dict->
-   // }
-
    if (dict->len == dict->cap) {
        printf("Dict len > Dict cap");
        return -1;
-       // dict->cap *= 2;
-       // // safe reallocation with tmp variable
-       // DictEntry* tmp = realloc(dict->entries, dict->cap * sizeof(DictEntry));
-       // if (!tmp) {
-       //     // could not resize, handle exception
-       //     printf("Could not resize entries in dictionary. ")
-       //     return -1;
-       // } else {
-       //     dict->entries = tmp;
-       // }
    }
    dict->len++;
    dict->entries[dict->len].key = dst_key;
    dict->entries[dict->len].value = dst_value;
    return 0;
 }
+
+// -------------------------------------------------------------------------------------------------
+//                                      ROUTING TABLE MANAGEMENT
+// -------------------------------------------------------------------------------------------------
+
+/*
+    Initialize the path by setting each entry to linkaddr_null
+*/
+void init_routing_path(my_collect_conn* conn) {
+    int i = 0;
+    linkaddr_t* path_ptr = conn->routing_table.tree_path;
+    while(i < MAX_PATH_LENGTH) {
+        linkaddr_copy(path_ptr, &linkaddr_null);
+        path_ptr++;
+        i++;
+    }
+}
+
+/*
+    Check if target is already in the path.
+    len: number of linkaddr_t elements already present in the path.
+*/
+int already_in_route(my_collect_conn* conn, uint8_t len, linkaddr_t* target) {
+    int i;
+    for (i = 0; i < len; i++) {
+        if (linkaddr_cmp(&conn->routing_table.tree_path[i], target)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/*
+    Search for a path from the sink to the destination node, going backwards
+    from the destiantion throught the parents. If not proper path is found returns 0,
+    otherwise the path length.
+    The linkddr_t addresses on the nodes in the path are written to the tree_path
+    array in the conn object.
+*/
+int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
+    init_routing_path(conn);
+
+    uint8_t path_len = 0;
+    linkaddr_t parent;
+    linkaddr_copy(&parent, dest);
+    do {
+        // copy into path the fist entry (dest node)
+        memcpy(&conn->routing_table.tree_path[path_len], &parent, sizeof(linkaddr_t));
+        parent = dict_find(&conn->routing_table, &parent);
+        // abort in case a node has not parent or the path presents a loop
+        if (linkaddr_cmp(&parent, &linkaddr_null) ||
+            already_in_route(conn, path_len, &parent))
+        {
+            return 0;
+        }
+        path_len++;
+    } while (!linkaddr_cmp(&parent, &sink_addr) && path_len < 10);
+
+    if (path_len == 10) {
+        // path too long
+        return 0;
+    }
+    return path_len;
+}
+
 // -------------------------------------------------------------------------------------------------
 
 // receiver functions for communications channels
@@ -289,7 +341,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
 int my_collect_send(my_collect_conn *conn) {
     uint8_t piggy_flag = 1;  // TODO:put here a call to some function that decides if to do piggyback
     // initialize header
-    data_packet_header hdr = {.type=data_packet, .source=linkaddr_node_addr,
+    upward_data_packet_header hdr = {.type=data_packet, .source=linkaddr_node_addr,
                                     .hops=0, .piggy_len=0 };
 
     if (linkaddr_cmp(&conn->parent, &linkaddr_null)) {  // in case the node has no parent
@@ -302,12 +354,12 @@ int my_collect_send(my_collect_conn *conn) {
         // topology information to be piggybacked
         tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
 
-        packetbuf_hdralloc(sizeof(data_packet_header) + sizeof(tree_connection));
-        memcpy(packetbuf_hdrptr(), &hdr, sizeof(data_packet_header));
-        memcpy(packetbuf_hdrptr() + sizeof(data_packet_header), &tc, sizeof(tree_connection));
+        packetbuf_hdralloc(sizeof(upward_data_packet_header) + sizeof(tree_connection));
+        memcpy(packetbuf_hdrptr(), &hdr, sizeof(upward_data_packet_header));
+        memcpy(packetbuf_hdrptr() + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
     } else {
-        packetbuf_hdralloc(sizeof(data_packet_header));
-        memcpy(packetbuf_hdrptr(), &hdr, sizeof(data_packet_header));
+        packetbuf_hdralloc(sizeof(upward_data_packet_header));
+        memcpy(packetbuf_hdrptr(), &hdr, sizeof(upward_data_packet_header));
     }
 
     return unicast_send(&conn->uc, &conn->parent);
@@ -367,33 +419,23 @@ int sr_send(struct my_collect_conn *conn, const linkaddr_t *dest) {
         return 0;
     }
 
-    // need to build the route to the destination node.
-    // NOTE: This is a mess since I cannot do dynamic memory allocation. Have to insert the path in the header backwards?
-    // count the path lenght from sink to destination node
-    uint8_t path_len = 0;
-    linkaddr_t next;  // This will be the node in the path right after the sink.
-    linkaddr_t parent;
-    linkaddr_copy(&parent, dest);
-    while (!linkaddr_cmp(&parent, &sink_addr)) {
-        linkaddr_copy(&next, &parent);
-        parent = dict_find(&conn->routing_table, &parent);
-        if (linkaddr_cmp(&parent, &linkaddr_null)) {
-            return 0;
-        }
-        path_len++;
+    // populate the array present in the source_routing structure in conn.
+    int path_len = find_route(conn, dest);
+    if (path_len == 0) {
+        return 0;
     }
 
+    downward_data_packet_header hdr = {.type=source_routing, .hops=0, .path_len=path_len };
+
     // allocate enough space in the header for the path
-    packetbuf_hdralloc(sizeof(enum packet_type)+sizeof(linkaddr_t)*path_len + sizeof(uint8_t));
-    enum packet_type t = source_routing;
-    memcpy(packetbuf_hdrptr(), &t, sizeof(int));
-    memcpy(packetbuf_hdrptr()+sizeof(uint8_t), &path_len, sizeof(uint8_t));
+    packetbuf_hdralloc(sizeof(downward_data_packet_header) + sizeof(linkaddr_t) * path_len);
+    memcpy(packetbuf_hdrptr(), &hdr, sizeof(downward_data_packet_header));
     int i;
-    linkaddr_copy(&parent, dest);
-    // path in backward order
-    for (i = path_len-1; i > 0; i--) {  // path len because to insert the Nth element I do sizeof(linkaddr_t)*(N-1)
-        memcpy(packetbuf_hdrptr()+sizeof(int)+sizeof(uint8_t)+sizeof(linkaddr_t)*(i), &parent, sizeof(linkaddr_t));
-        parent = dict_find(&conn->routing_table, &parent);
+    // copy path in inverse order.
+    for (i = path_len-1; i >= 0; i--) {  // path len because to insert the Nth element I do sizeof(linkaddr_t)*(N-1)
+        memcpy(packetbuf_hdrptr()+sizeof(downward_data_packet_header)+sizeof(linkaddr_t)*(path_len-1-i),
+            &conn->routing_table.tree_path[i],
+            sizeof(linkaddr_t));
     }
-    return unicast_send(&conn->uc, &next);
+    return unicast_send(&conn->uc, &conn->routing_table.tree_path[0]);
 }
