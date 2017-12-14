@@ -428,14 +428,18 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
     enum packet_type pt;
     memcpy(&pt, packetbuf_hdrptr(), sizeof(int));
 
+    printf("Node %02x:%02x received unicast packet with type %d\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1], pt);
     switch (pt) {
         case data_packet:
+            printf("Node %02x:%02x receivd a unicast data packet\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
             forward_upward_data(conn, sender);
             break;
         case topology_report:
+            printf("Node %02x:%02x receivd a unicast topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
             send_topology_report(conn, 1);  // 1: forwarding set to true
             break;
         case source_routing:
+            printf("Node %02x:%02x receivd a unicast source routing packet\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
             forward_downward_data(conn, sender);
             break;
         default:
