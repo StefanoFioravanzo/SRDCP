@@ -8,7 +8,6 @@
 #include "core/net/linkaddr.h"
 
 #include "my_collect.h"
-#include "unicast_receive.h"
 
 /*
 Data collection > multi-hop source routing protocol
@@ -36,6 +35,14 @@ TODO: Test protocol both with NullRDC and ContikiMAC.
 
 
 THINK ABOUT THE TIMING. HOW TO BALANCE PIGGYBACKING AND TOPOLOGY REPORTS. USE A VERY BASIC IMPLEMENTATION TO HAVE SOMETHING FUNCTIONAL.
+
+- Compute average application data rate. (Have an adaptive algortihm).
+- if updated parent:
+    - default: send dedicated topology report (reset timer)
+    - adaptive: In case average application data rate is ~30s, don't send dedicated topology report.
+- When sending upward data:
+    - if
+
 */
 
 // -------------------------------------------------------------------------------------------------
@@ -69,6 +76,10 @@ int dict_add(TreeDict* dict, const linkaddr_t key, linkaddr_t value) {
     Adds a new entry to the Dictionary
     In case the key already exists, it replaces the value
     */
+    if (dict->len == MAX_NODES) {
+        printf("Dictionary is full. MAX_NODES cap reached.");
+        return -1;
+    }
    int idx = dict_find_index(dict, key);
    linkaddr_t dst_value, dst_key;
    linkaddr_copy(&dst_value, &value);
@@ -76,11 +87,6 @@ int dict_add(TreeDict* dict, const linkaddr_t key, linkaddr_t value) {
    if (idx != -1) {  // Element already present, update its value
        dict->entries[idx].value = dst_value;
        return 0;
-   }
-
-   if (dict->len == dict->cap) {
-       printf("Dict len > Dict cap");
-       return -1;
    }
    dict->len++;
    dict->entries[dict->len].key = dst_key;
@@ -154,6 +160,15 @@ int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
 
 // -------------------------------------------------------------------------------------------------
 
+bool piggybacking_operation_allowed(my_collect_conn* conn) {
+    if (conn->traffic_control.piggy_sent >= PIGGYBACK_PACKETS_SENT) {
+        return false;
+    }
+    return true;
+}
+
+// -------------------------------------------------------------------------------------------------
+
 // receiver functions for communications channels
 void bc_recv(struct broadcast_conn*, const linkaddr_t*);
 void uc_recv(struct unicast_conn*, const linkaddr_t*);
@@ -170,6 +185,13 @@ void my_collect_open(my_collect_conn* conn, uint16_t channels,
     conn->metric = 65535;  // max int: node not connected
     conn->beacon_seqn = 0;
     conn->callbacks = callbacks;
+    conn->traffic_control.packet_rate = 0;
+    conn->traffic_control.packet_counter = 0;
+    conn->traffic_control.piggy_sent = 0;
+    ctimer_set(&conn->traffic_control.packet_rate_timer,
+        CLOCK_SECOND,
+        traffic_control_timer_cb,
+        conn);
 
     if (is_sink) {
         conn->is_sink = 1;
@@ -214,6 +236,18 @@ void traffic_control_timer_cb(void* ptr) {
 
     ctimer_set(&conn->traffic_control_timer,
         PARENT_REFRESH_RATE,
+        traffic_control_timer_cb,
+        conn);
+}
+
+void packet_rate_timer_cb(void* ptr) {
+    my_collect_conn* conn = ptr;
+
+    conn->traffic_control.packet_rate = conn->traffic_control.packet_counter;
+    conn->traffic_control.packet_counter = 0;
+
+    ctimer_set(&conn->traffic_control.packet_rate_timer,
+        PACKET_RATE_INTERVAL,
         traffic_control_timer_cb,
         conn);
 }
@@ -322,7 +356,11 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     linkaddr_copy(&conn->parent, sender);
 
     // since we have updated the parent, send the dedicated topology report.
-    send_topology_report(conn, 0);
+    if (conn->traffic_control.packet_rate < DEDICATED_REPORT_SUPPRESSION_THRESHOLD) {
+        // send the packet just if the application data rate is too low ()
+        send_topology_report(conn, 0);
+    }
+    conn->traffic_control.piggy_sent = 0;
 
     // Retransmit the beacon since the metric has been updated.
     // Introduce small random delay with the BEACON_FORWARD_DELAY to avoid synch
@@ -337,7 +375,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     The data posrtion of the packetbuf is already filled by the application layer.
 */
 int my_collect_send(my_collect_conn *conn) {
-    uint8_t piggy_flag = 1;  // TODO:put here a call to some function that decides if to do piggyback
+    uint8_t piggy_flag = piggybacking_operation_allowed(conn);
     // initialize header
     upward_data_packet_header hdr = {.type=data_packet, .source=linkaddr_node_addr,
                                     .hops=0, .piggy_len=0 };
@@ -348,6 +386,7 @@ int my_collect_send(my_collect_conn *conn) {
 
     // allocate space for the header
     if (piggy_flag) {
+        conn->traffic_control.piggy_sent++;
         hdr.piggy_len = 1;
         // topology information to be piggybacked
         tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
@@ -359,7 +398,8 @@ int my_collect_send(my_collect_conn *conn) {
         packetbuf_hdralloc(sizeof(upward_data_packet_header));
         memcpy(packetbuf_hdrptr(), &hdr, sizeof(upward_data_packet_header));
     }
-
+    // increase the packet_counter for packet rate estimation
+    conn->traffic_control.packet_counter++;
     return unicast_send(&conn->uc, &conn->parent);
 }
 
@@ -436,4 +476,94 @@ int sr_send(struct my_collect_conn *conn, const linkaddr_t *dest) {
             sizeof(linkaddr_t));
     }
     return unicast_send(&conn->uc, &conn->routing_table.tree_path[0]);
+}
+
+// -------------------------------------------------------------------------------------------------
+//                                      UNICAST RECEIVE FUNCTIONS
+// -------------------------------------------------------------------------------------------------
+
+/*
+    Forwarding or collection of data sent from one node to the sink.
+
+        - Sink: Counts the number of topology informations with piggy_len present in the header.
+        Then calls the callback to the application layer to retrieve the packet data.
+        - Node: A node just forwards upwards the message. In case it wants to piggyback
+        some topology information (its parent) it increases header size and writes in the header
+        its parent.
+*/
+void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
+    upward_data_packet_header hdr;
+    memcpy(&hdr, packetbuf_dataptr(), sizeof(upward_data_packet_header));
+
+    // if this is the sink
+    if (conn->is_sink){
+        uint8_t piggy_len = hdr.piggy_len;
+        packetbuf_hdrreduce(sizeof(upward_data_packet_header));
+        if (piggy_len > 0) {  // it mens there is some piggybacking
+            // read the piggyybacked information and update the tree dictionary
+            tree_connection piggy_info;
+            size_t i;
+            for (i = 0; i < piggy_len; i++) {
+                memcpy(&piggy_info, packetbuf_dataptr(), sizeof(tree_connection));
+                // TODO: add piggy info to dictionary
+            }
+        }
+        // application receive callback
+        conn->callbacks->recv(&hdr.source, hdr.hops +1 );
+    }else{
+        uint8_t piggy_flag = piggybacking_operation_allowed(conn);
+         if (piggy_flag) {
+             hdr.piggy_len = hdr.piggy_len + 1;
+             // alloc some more space in the header and copy the piggyback information
+             packetbuf_hdralloc(sizeof(tree_connection));
+             tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
+             memcpy(packetbuf_dataptr() + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
+         }
+        // update header hop count
+        hdr.hops = hdr.hops + 1;
+        memcpy(packetbuf_dataptr(), &hdr, sizeof(upward_data_packet_header));
+        // copy updated struct to packet header
+        unicast_send(&conn->uc, &conn->parent);
+    }
+}
+
+/*
+    Packet forwarding from a node to another node in the path computed by the sink.
+    The node first checks that it is indeed the next hop in the path, then reduces the
+    header (removing itself) and sends the packet to the next node in the path.
+*/
+void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
+
+    linkaddr_t addr;
+    downward_data_packet_header hdr;
+
+    memcpy(&hdr, packetbuf_hdrptr(), sizeof(downward_data_packet_header));
+    // Get first address in path
+    memcpy(&addr, packetbuf_hdrptr() + sizeof(downward_data_packet_header), sizeof(linkaddr_t));
+
+    if (linkaddr_cmp(&addr, &linkaddr_node_addr)) {
+        if (hdr.path_len == 1) {
+            // this is the last hop
+            // read message data and print it
+            // uint16_t seqn;
+            // memcpy(&seqn, packetbuf_dataptr(), sizeof(uint16_t));
+            // printf("Node %02x:%02x: seqn %d from sink\n",
+            //         linkaddr_node_addr.u8[0],
+            //         linkaddr_node_addr.u8[1],
+            //         seqn);
+            conn->callbacks->sr_recv(conn, hdr.hops +1 );
+        } else {
+            // if the next hop is indeed this node
+            // reduce header and decrease path length
+            packetbuf_hdrreduce(sizeof(linkaddr_t));
+            hdr.path_len = hdr.path_len - 1;
+            memcpy(packetbuf_hdrptr(), &hdr, sizeof(downward_data_packet_header));
+            // get next addr in path
+            memcpy(&addr, packetbuf_hdrptr()+sizeof(downward_data_packet_header), sizeof(linkaddr_t));
+            unicast_send(&conn->uc, &addr);
+        }
+    } else {
+        printf("ERROR: Node %02x:%02x received sr message. Was meant for node %02x:%02x\n",
+            linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1], addr.u8[0], addr.u8[1]);
+    }
 }

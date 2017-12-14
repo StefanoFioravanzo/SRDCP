@@ -11,6 +11,13 @@
 #define MAX_NODES 30
 #define MAX_PATH_LENGTH 10
 
+#define PACKET_RATE_INTERVAL (CLOCK_SECOND*60)
+// Minumum data rate (N packets per minute) that are needed to suppress
+// dedicated topology reports when the node changes its parent.
+#define DEDICATED_REPORT_SUPPRESSION_THRESHOLD 5
+// max number of piggybacks done after the parent was changed
+#define PIGGYBACK_PACKETS_SENT 2
+
 #define BEACON_INTERVAL (CLOCK_SECOND*60)
 #define BEACON_FORWARD_DELAY (random_rand() * CLOCK_SECOND)
 // time after which the node has to have completed the parent communication
@@ -37,13 +44,24 @@ typedef struct DictEntry {
 } DictEntry;
 
 typedef struct TreeDict {
-    // int len;
+    int len;
     // int cap;
     DictEntry entries[MAX_NODES];
     linkaddr_t tree_path[MAX_PATH_LENGTH];
 } TreeDict;
 
 // --------------------------------------------------------------------
+
+typedef struct TrafficControl {
+    // Estimated average application packet rate
+    uint16_t packet_rate;
+    // incremental packet counter
+    uint16_t packet_counter;
+    // number of piggybacks done from last parent update
+    uint8_t piggy_sent;
+    // timer to compute 60s intervals for packet rate
+    struct ctimer packet_rate_timer;
+} TrafficControl;
 
 /* Connection object */
 typedef struct my_collect_conn {
@@ -66,8 +84,9 @@ typedef struct my_collect_conn {
     // true if this node is the sink
     uint8_t is_sink;  // 1: is_sink, 0: not_sink
     // tree table (used only in the sink)
-    // TODO: can we put this in some structure usd only by the sink?
     TreeDict routing_table;
+    // used to manage the application packet rate and adjust the topology report packet rate
+    TrafficControl traffic_control;
 } my_collect_conn;
 
 struct my_collect_callbacks {
@@ -78,6 +97,7 @@ struct my_collect_callbacks {
 // timers Callbacks
 void beacon_timer_cb(void*);
 void traffic_control_timer_cb(void*);
+void packet_rate_timer_cb(void*);
 
 // -------- UTIL FUNCTIONS --------
 
@@ -89,6 +109,9 @@ void bc_recv(struct broadcast_conn*, const linkaddr_t*);
 int my_collect_send(my_collect_conn*);
 void uc_recv(struct unicast_conn*, const linkaddr_t*);
 void send_topology_report(my_collect_conn*, uint8_t);
+
+void forward_upward_data(my_collect_conn*, const linkaddr_t*);
+void forward_downward_data(my_collect_conn*, const linkaddr_t*);
 
 /*
  Source routing send function:

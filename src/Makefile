@@ -11,7 +11,6 @@ DEFINES=PROJECT_CONF_H=\"project-conf.h\"
 CONTIKI_PROJECT = app
 
 PROJECT_SOURCEFILES += my_collect.c
-PROJECT_SOURCEFILES += unicast_receive.c
 
 all: $(CONTIKI_PROJECT)
 
