@@ -41,7 +41,6 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
     }else{
         uint8_t piggy_flag = 1; // TODO:put here a call to some function that decides if to do piggyback
          if (piggy_flag) {
-             //TODO: update piggy_len field in the header struct
              hdr.piggy_len = hdr.piggy_len + 1;
              // alloc some more space in the header and copy the piggyback information
              packetbuf_hdralloc(sizeof(tree_connection));
@@ -92,6 +91,7 @@ void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
             unicast_send(&conn->uc, &addr);
         }
     } else {
-        // TODO: error
+        printf("ERROR: Node %02x:%02x received sr message. Was meant for node %02x:%02x\n",
+            linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1], addr.u8[0], addr.u8[1]);
     }
 }

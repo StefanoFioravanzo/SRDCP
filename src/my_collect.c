@@ -26,7 +26,6 @@ Traffic patterns:
 	- topology reports: ad-hoc report packets.     V
 
 TODO: node sends topology report after joining the network (or changing the parent?)
-TODO: detect loop when building the path on the sink.
 TODO: Beware of collisions mostly during bootstrap when nodes join the network
     or change the parent. May have collisions between dedicated topology reports and beacons.
     How to avoid this?
@@ -34,8 +33,9 @@ TODO: Beware of collisions mostly during bootstrap when nodes join the network
     The first range of time is used for sink beacons, the second for sending topology report.
     This considering instantaneous transmission time (wrt time ranges).
 TODO: Test protocol both with NullRDC and ContikiMAC.
-TODO: Assume a maximum path length and a max number of nodes.
 
+
+THINK ABOUT THE TIMING. HOW TO BALANCE PIGGYBACKING AND TOPOLOGY REPORTS. USE A VERY BASIC IMPLEMENTATION TO HAVE SOMETHING FUNCTIONAL.
 */
 
 // -------------------------------------------------------------------------------------------------
@@ -145,7 +145,7 @@ int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
         path_len++;
     } while (!linkaddr_cmp(&parent, &sink_addr) && path_len < 10);
 
-    if (path_len == 10) {
+    if (path_len > 10) {
         // path too long
         return 0;
     }
@@ -186,10 +186,8 @@ void my_collect_open(my_collect_conn* conn, uint16_t channels,
         conn->metric = 0;
 
         // initialize routing table
-        //TODO: alloc here routing table
-        // no need to initialize since the first initialization is done
-        // during the first entry insert.
-        TreeDict rt = {.len=0, .cap=MAX_NODES};
+        TreeDict rt;
+        // TreeDict rt = {.len=0, .cap=MAX_NODES};
         conn->routing_table = rt;
 
         // start a timer to send the beacon. Pass to the timer the conn object
@@ -210,13 +208,13 @@ void beacon_timer_cb(void* ptr) {
     }
 }
 
-void dedicated_topology_report_timer_cb(void* ptr) {
+void traffic_control_timer_cb(void* ptr) {
     my_collect_conn* conn = ptr;
     send_topology_report(conn, 0);  // 0: first send, no forwarding
 
-    ctimer_set(&conn->topology_report_timer,
+    ctimer_set(&conn->traffic_control_timer,
         PARENT_REFRESH_RATE,
-        dedicated_topology_report_timer_cb,
+        traffic_control_timer_cb,
         conn);
 }
 
@@ -241,7 +239,7 @@ void send_topology_report(my_collect_conn* conn, uint8_t forward) {
             return;
     }
     // else
-
+    printf("Node %02x:%02x sending a topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
     packetbuf_clear();
 
     // TODO: explore possibility of using data space instead of header.
@@ -301,7 +299,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
         beacon.seqn, beacon.metric, rssi);
 
     if (rssi < RSSI_REJECTION_TRESHOLD) {
-        printf("packet rejected due to low rssi");
+        printf("packet rejected due to low rssi\n");
         return;
     }
 
@@ -401,7 +399,7 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
             forward_downward_data(conn, sender);
             break;
         default:
-            printf("Packet type not recognized.");
+            printf("Packet type not recognized.\n");
     }
 }
 

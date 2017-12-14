@@ -37,8 +37,8 @@ typedef struct DictEntry {
 } DictEntry;
 
 typedef struct TreeDict {
-    int len;
-    int cap;
+    // int len;
+    // int cap;
     DictEntry entries[MAX_NODES];
     linkaddr_t tree_path[MAX_PATH_LENGTH];
 } TreeDict;
@@ -55,9 +55,10 @@ typedef struct my_collect_conn {
     const struct my_collect_callbacks* callbacks;
     // address of parent node
     linkaddr_t parent;
-    // global timer
+    // global timers
     struct ctimer beacon_timer;
-    struct ctimer topology_report_timer;
+    // timer used to manage balance between piggybacking and dedicated topology reports
+    struct ctimer traffic_control_timer;
     // metric: hop count
     uint16_t metric;
     // sequence number of the tree protocol
@@ -76,7 +77,7 @@ struct my_collect_callbacks {
 
 // timers Callbacks
 void beacon_timer_cb(void*);
-void dedicated_topology_report_timer_cb(void*);
+void traffic_control_timer_cb(void*);
 
 // -------- UTIL FUNCTIONS --------
 
