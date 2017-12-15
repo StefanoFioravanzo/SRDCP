@@ -188,10 +188,10 @@ void my_collect_open(my_collect_conn* conn, uint16_t channels,
     conn->traffic_control.packet_rate = 0;
     conn->traffic_control.packet_counter = 0;
     conn->traffic_control.piggy_sent = 0;
-    ctimer_set(&conn->traffic_control.packet_rate_timer,
-        CLOCK_SECOND,
-        traffic_control_timer_cb,
-        conn);
+    // ctimer_set(&conn->traffic_control.packet_rate_timer,
+    //     CLOCK_SECOND,
+    //     traffic_control_timer_cb,
+    //     conn);
 
     if (is_sink) {
         conn->is_sink = 1;
@@ -283,12 +283,13 @@ void send_topology_report(my_collect_conn* conn, uint8_t forward) {
 
     // No actual data in the packet, data present in the header
 
-    topology_report_header hdr = {.type=topology_report};
+    // topology_report_header hdr = {.type=topology_report};
+    enum packet_type pt = topology_report;
     tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
 
-    packetbuf_hdralloc(sizeof(topology_report_header) + sizeof(tree_connection));
-    memcpy(packetbuf_hdrptr(), &hdr, sizeof(topology_report_header));
-    memcpy(packetbuf_hdrptr() + sizeof(topology_report_header), &tc, sizeof(tree_connection));
+    packetbuf_hdralloc(sizeof(int) + sizeof(tree_connection));
+    memcpy(packetbuf_hdrptr(), &pt, sizeof(int));
+    memcpy(packetbuf_hdrptr() + sizeof(int), &tc, sizeof(tree_connection));
 
     unicast_send(&conn->uc, &conn->parent);
 }
@@ -352,14 +353,17 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     }
     // update metric (hop count)
     conn->metric = beacon.metric + 1;
-    // update parent
-    linkaddr_copy(&conn->parent, sender);
 
-    // since we have updated the parent, send the dedicated topology report.
-    if (conn->traffic_control.packet_rate < DEDICATED_REPORT_SUPPRESSION_THRESHOLD) {
-        // send the packet just if the application data rate is too low ()
-        send_topology_report(conn, 0);
+    if (!linkaddr_cmp(&conn->parent, sender)) {
+        // update parent
+        linkaddr_copy(&conn->parent, sender);
+        // since we have updated the parent, send the dedicated topology report.
+        if (conn->traffic_control.packet_rate < DEDICATED_REPORT_SUPPRESSION_THRESHOLD) {
+            // send the packet just if the application data rate is too low ()
+            send_topology_report(conn, 0);
+        }
     }
+
     conn->traffic_control.piggy_sent = 0;
 
     // Retransmit the beacon since the metric has been updated.
@@ -377,7 +381,8 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
 int my_collect_send(my_collect_conn *conn) {
     uint8_t piggy_flag = piggybacking_operation_allowed(conn);
     // initialize header
-    upward_data_packet_header hdr = {.type=data_packet, .source=linkaddr_node_addr,
+    enum packet_type pt = data_packet;
+    upward_data_packet_header hdr = {.source=linkaddr_node_addr,
                                     .hops=0, .piggy_len=0 };
 
     if (linkaddr_cmp(&conn->parent, &linkaddr_null)) {  // in case the node has no parent
@@ -391,12 +396,14 @@ int my_collect_send(my_collect_conn *conn) {
         // topology information to be piggybacked
         tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
 
-        packetbuf_hdralloc(sizeof(upward_data_packet_header) + sizeof(tree_connection));
-        memcpy(packetbuf_hdrptr(), &hdr, sizeof(upward_data_packet_header));
-        memcpy(packetbuf_hdrptr() + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
+        packetbuf_hdralloc(sizeof(int) + sizeof(upward_data_packet_header) + sizeof(tree_connection));
+        memcpy(packetbuf_hdrptr(), &pt, sizeof(int));
+        memcpy(packetbuf_hdrptr() + sizeof(int), &hdr, sizeof(upward_data_packet_header));
+        memcpy(packetbuf_hdrptr() + sizeof(int) + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
     } else {
-        packetbuf_hdralloc(sizeof(upward_data_packet_header));
-        memcpy(packetbuf_hdrptr(), &hdr, sizeof(upward_data_packet_header));
+        packetbuf_hdralloc(sizeof(int) + sizeof(upward_data_packet_header));
+        memcpy(packetbuf_hdrptr(), &pt, sizeof(int));
+        memcpy(packetbuf_hdrptr() + sizeof(int), &hdr, sizeof(upward_data_packet_header));
     }
     // increase the packet_counter for packet rate estimation
     conn->traffic_control.packet_counter++;
@@ -426,7 +433,7 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
 
     // Read packet type from first byte of the header.
     enum packet_type pt;
-    memcpy(&pt, packetbuf_hdrptr(), sizeof(int));
+    memcpy(&pt, packetbuf_dataptr(), sizeof(int));
 
     printf("Node %02x:%02x received unicast packet with type %d\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1], pt);
     switch (pt) {
@@ -467,15 +474,17 @@ int sr_send(struct my_collect_conn *conn, const linkaddr_t *dest) {
         return 0;
     }
 
-    downward_data_packet_header hdr = {.type=source_routing, .hops=0, .path_len=path_len };
+    enum packet_type pt = source_routing;
+    downward_data_packet_header hdr = {.hops=0, .path_len=path_len };
 
     // allocate enough space in the header for the path
-    packetbuf_hdralloc(sizeof(downward_data_packet_header) + sizeof(linkaddr_t) * path_len);
-    memcpy(packetbuf_hdrptr(), &hdr, sizeof(downward_data_packet_header));
+    packetbuf_hdralloc(sizeof(int) + sizeof(downward_data_packet_header) + sizeof(linkaddr_t) * path_len);
+    memcpy(packetbuf_hdrptr(), &pt, sizeof(int));
+    memcpy(packetbuf_hdrptr() + sizeof(int), &hdr, sizeof(downward_data_packet_header));
     int i;
     // copy path in inverse order.
     for (i = path_len-1; i >= 0; i--) {  // path len because to insert the Nth element I do sizeof(linkaddr_t)*(N-1)
-        memcpy(packetbuf_hdrptr()+sizeof(downward_data_packet_header)+sizeof(linkaddr_t)*(path_len-1-i),
+        memcpy(packetbuf_hdrptr()+sizeof(int)+sizeof(downward_data_packet_header)+sizeof(linkaddr_t)*(path_len-1-i),
             &conn->routing_table.tree_path[i],
             sizeof(linkaddr_t));
     }
@@ -497,12 +506,13 @@ int sr_send(struct my_collect_conn *conn, const linkaddr_t *dest) {
 */
 void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
     upward_data_packet_header hdr;
-    memcpy(&hdr, packetbuf_dataptr(), sizeof(upward_data_packet_header));
+    // before the header there is the packet type
+    memcpy(&hdr, packetbuf_dataptr() + sizeof(int), sizeof(upward_data_packet_header));
 
     // if this is the sink
     if (conn->is_sink){
         uint8_t piggy_len = hdr.piggy_len;
-        packetbuf_hdrreduce(sizeof(upward_data_packet_header));
+        packetbuf_hdrreduce(sizeof(int) + sizeof(upward_data_packet_header));
         if (piggy_len > 0) {  // it mens there is some piggybacking
             // read the piggyybacked information and update the tree dictionary
             tree_connection piggy_info;
@@ -511,6 +521,8 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
                 memcpy(&piggy_info, packetbuf_dataptr(), sizeof(tree_connection));
                 // TODO: add piggy info to dictionary
             }
+            // remove from the packet the piggyback data. Leave just application data.
+            packetbuf_hdrreduce(sizeof(tree_connection)*piggy_len);
         }
         // application receive callback
         conn->callbacks->recv(&hdr.source, hdr.hops +1 );
@@ -521,11 +533,15 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
              // alloc some more space in the header and copy the piggyback information
              packetbuf_hdralloc(sizeof(tree_connection));
              tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
-             memcpy(packetbuf_dataptr() + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
+             // TODO: Here I am doing a STRONG assumption. That the packetbuf_hdralloc is CONTIGUOUS with the data portion of the header.
+             memcpy(packetbuf_hdrptr() + sizeof(int) + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
          }
+        // rewrite packet packet header
+        enum packet_type pt = data_packet;
+        memcpy(packetbuf_hdrptr(), &pt, sizeof(int));
         // update header hop count
         hdr.hops = hdr.hops + 1;
-        memcpy(packetbuf_dataptr(), &hdr, sizeof(upward_data_packet_header));
+        memcpy(packetbuf_hdrptr() + sizeof(int), &hdr, sizeof(upward_data_packet_header));
         // copy updated struct to packet header
         unicast_send(&conn->uc, &conn->parent);
     }
@@ -541,9 +557,9 @@ void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
     linkaddr_t addr;
     downward_data_packet_header hdr;
 
-    memcpy(&hdr, packetbuf_hdrptr(), sizeof(downward_data_packet_header));
+    memcpy(&hdr, packetbuf_dataptr() + sizeof(int), sizeof(downward_data_packet_header));
     // Get first address in path
-    memcpy(&addr, packetbuf_hdrptr() + sizeof(downward_data_packet_header), sizeof(linkaddr_t));
+    memcpy(&addr, packetbuf_dataptr() + sizeof(int) + sizeof(downward_data_packet_header), sizeof(linkaddr_t));
 
     if (linkaddr_cmp(&addr, &linkaddr_node_addr)) {
         if (hdr.path_len == 1) {
@@ -561,9 +577,11 @@ void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
             // reduce header and decrease path length
             packetbuf_hdrreduce(sizeof(linkaddr_t));
             hdr.path_len = hdr.path_len - 1;
-            memcpy(packetbuf_hdrptr(), &hdr, sizeof(downward_data_packet_header));
+            enum packet_type pt = source_routing;
+            memcpy(packetbuf_dataptr(), &pt, sizeof(int));
+            memcpy(packetbuf_dataptr() + sizeof(int), &hdr, sizeof(downward_data_packet_header));
             // get next addr in path
-            memcpy(&addr, packetbuf_hdrptr()+sizeof(downward_data_packet_header), sizeof(linkaddr_t));
+            memcpy(&addr, packetbuf_dataptr()+sizeof(int)+sizeof(downward_data_packet_header), sizeof(linkaddr_t));
             unicast_send(&conn->uc, &addr);
         }
     } else {

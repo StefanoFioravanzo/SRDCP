@@ -132,7 +132,7 @@ struct beacon_message {
 typedef struct beacon_message beacon_message;
 
 struct upward_data_packet_header {
-    enum packet_type type;
+    // enum packet_type type;
     linkaddr_t source;
     uint8_t hops;
     uint8_t piggy_len;  // 0 in case there is no piggybacking
@@ -140,7 +140,7 @@ struct upward_data_packet_header {
 typedef struct upward_data_packet_header upward_data_packet_header;
 
 struct downward_data_packet_header {
-    enum packet_type type;
+    // enum packet_type type;
     uint8_t hops;
     uint8_t path_len;
 } __attribute__((packed));
@@ -152,11 +152,11 @@ struct tree_connection {
 } __attribute__((packed));
 typedef struct tree_connection tree_connection;
 
-struct topology_report_header {
-    enum packet_type type;
-    // number of
-    // uint8_t data_len;
-} __attribute__((packed));
-typedef struct topology_report_header topology_report_header;
+// struct topology_report_header {
+//     enum packet_type type;
+//     // number of
+//     // uint8_t data_len;
+// } __attribute__((packed));
+// typedef struct topology_report_header topology_report_header;
 
 #endif // MY_COLLECT_H
