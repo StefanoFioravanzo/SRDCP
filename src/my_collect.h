@@ -30,6 +30,7 @@ struct my_collect_conn {
     uint16_t beacon_seqn;
     uint8_t is_sink;  // 1: is_sink, 0: not_sink
 };
+typedef struct my_collect_conn my_collect_conn;
 
 struct my_collect_callbacks {
     void (* recv)(const linkaddr_t *originator, uint8_t hops);
@@ -49,6 +50,8 @@ int  my_collect_send(struct my_collect_conn *c);
 void bc_recv(struct broadcast_conn *conn, const linkaddr_t *sender);
 void uc_recv(struct unicast_conn *c, const linkaddr_t *from);
 void send_beacon(struct my_collect_conn*);
+
+void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender);
 
 /*
  Source routing send function:
