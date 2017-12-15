@@ -169,10 +169,6 @@ bool piggybacking_operation_allowed(my_collect_conn* conn) {
 
 // -------------------------------------------------------------------------------------------------
 
-// receiver functions for communications channels
-void bc_recv(struct broadcast_conn*, const linkaddr_t*);
-void uc_recv(struct unicast_conn*, const linkaddr_t*);
-
 // Callbacks structure to initialize the communication channels
 struct broadcast_callbacks bc_cb = {.recv=bc_recv};
 struct unicast_callbacks uc_cb = {.recv=uc_recv};

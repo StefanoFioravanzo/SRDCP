@@ -312,7 +312,8 @@
     <plugin_config>
       <script>
         SIM_SETTLING_TIME = 20000
-        TIMEOUT(1800000);
+        //TIMEOUT(1800000);
+	TIMEOUT(300000);
         try {
           load("nashorn:mozilla_compat.js");
         } catch(err) {}
