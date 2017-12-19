@@ -7,6 +7,9 @@
 #include "net/netstack.h"
 #include "core/net/linkaddr.h"
 
+#define MAX_NODES 30
+#define MAX_PATH_LENGTH 10
+
 #define BEACON_INTERVAL (CLOCK_SECOND*60)
 #define BEACON_FORWARD_DELAY (random_rand() % CLOCK_SECOND)
 
@@ -19,16 +22,42 @@ enum packet_type {
     topology_report = 2
 };
 
+// --------------------------------------------------------------------
+//                              DICT STRUCTS
+// --------------------------------------------------------------------
+
+typedef struct DictEntry {
+    linkaddr_t key;  // the address of the node
+    linkaddr_t value;  // the address of the parent
+} DictEntry;
+
+typedef struct TreeDict {
+    int len;
+    // int cap;
+    DictEntry entries[MAX_NODES];
+    linkaddr_t tree_path[MAX_PATH_LENGTH];
+} TreeDict;
+
+// --------------------------------------------------------------------
+
 /* Connection object */
 struct my_collect_conn {
+    // broadcast connection object
     struct broadcast_conn bc;
+    // unicast connection object
     struct unicast_conn uc;
     const struct my_collect_callbacks* callbacks;
+    // address of parent node
     linkaddr_t parent;
     struct ctimer beacon_timer;
+    // metric: hop count
     uint16_t metric;
+    // sequence number of the tree protocol
     uint16_t beacon_seqn;
+    // true if this node is the sink
     uint8_t is_sink;  // 1: is_sink, 0: not_sink
+    // tree table (used only in the sink)
+    TreeDict routing_table;
 };
 typedef struct my_collect_conn my_collect_conn;
 
@@ -50,8 +79,9 @@ int  my_collect_send(struct my_collect_conn *c);
 void bc_recv(struct broadcast_conn *conn, const linkaddr_t *sender);
 void uc_recv(struct unicast_conn *c, const linkaddr_t *from);
 void send_beacon(struct my_collect_conn*);
-
+void send_topology_report(my_collect_conn*, uint8_t);
 void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender);
+void forward_downward_data(my_collect_conn*, const linkaddr_t*);
 
 /*
  Source routing send function:

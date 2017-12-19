@@ -13,6 +13,54 @@
 struct broadcast_callbacks bc_cb = {.recv=bc_recv};
 struct unicast_callbacks uc_cb = {.recv=uc_recv};
 
+// -------------------------------------------------------------------------------------------------
+//                                      DICT IMPLEMENTATION
+// -------------------------------------------------------------------------------------------------
+
+int dict_find_index(TreeDict* dict, const linkaddr_t key) {
+    int i;
+    for (i = 0; i < dict->len; i++) {
+        DictEntry tmp = dict->entries[i];
+        if (linkaddr_cmp(&(tmp.key), &key) != 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+linkaddr_t dict_find(TreeDict* dict, const linkaddr_t *key) {
+    int idx = dict_find_index(dict, *key);
+    linkaddr_t ret;
+    if (idx == -1) {
+        linkaddr_copy(&ret, &linkaddr_null);
+    } else {
+        linkaddr_copy(&ret, &dict->entries[idx].value);
+    }
+    return ret;
+}
+
+int dict_add(TreeDict* dict, const linkaddr_t key, linkaddr_t value) {
+    /*
+    Adds a new entry to the Dictionary
+    In case the key already exists, it replaces the value
+    */
+    if (dict->len == MAX_NODES) {
+        printf("Dictionary is full. MAX_NODES cap reached.");
+        return -1;
+    }
+   int idx = dict_find_index(dict, key);
+   if (idx != -1) {  // Element already present, update its value
+       linkaddr_copy(&dict->entries[idx].value, &value);
+       return 0;
+   }
+   dict->len++;
+   linkaddr_copy(&dict->entries[dict->len].key, &key);
+   linkaddr_copy(&dict->entries[dict->len].value, &value);
+   return 0;
+}
+
+// -------------------------------------------------------------------------------------------------
+
 void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
                      bool is_sink, const struct my_collect_callbacks *callbacks)
 {
@@ -32,9 +80,9 @@ void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
     broadcast_open(&conn->bc, channels,     &bc_cb);
     unicast_open  (&conn->uc, channels + 1, &uc_cb);
 
-    // TODO 1: make the sink send beacons periodically
     if (is_sink) {
-        conn->metric=0;
+        conn->metric = 0;
+        conn->routing_table.len = 0;
         // we pass the connection object conn to the timer callback
         ctimer_set(&conn->beacon_timer, CLOCK_SECOND, beacon_timer_cb, conn);
     }
