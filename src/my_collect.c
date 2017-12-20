@@ -92,6 +92,13 @@ void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
 ------------ TIMER Callbacks ------------
 */
 
+void topology_report_timer_cb(void* ptr) {
+    struct my_collect_conn *conn = ptr;
+    send_topology_report(conn, 0);
+
+    ctimer_set(&conn->topology_report_timer, TOPOLOGY_REPORT_INTERVAL, topology_report_timer_cb, conn);
+}
+
 // Beacon timer callback
 void beacon_timer_cb(void* ptr) {
     struct my_collect_conn *conn = ptr;
@@ -105,6 +112,50 @@ void beacon_timer_cb(void* ptr) {
 /*
 ------------ SEND and RECEIVE functions ------------
 */
+
+/*
+    When the sink receives a topology report, it has to read the tree_connection
+    structure in the packet and update the node's parent.
+*/
+void deliver_topology_report_to_sink(my_collect_conn* conn) {
+    // remove header information
+    packetbuf_hdrreduce(sizeof(enum packet_type));
+    tree_connection tc;
+    memcpy(&tc, packetbuf_dataptr(), sizeof(tree_connection));
+
+    printf("Sink: received topology report. Updating parent of node %02x:%02x\n", tc.node.u8[0], tc.node.u8[1]);
+    dict_add(&conn->routing_table, tc.node, tc.parent);
+}
+
+/*
+    The node sends a topology report to its parent.
+    Topology report is sent when the node changes its parent or after too much
+    silence from the application layer (no piggybacking available).
+
+    This method is also used for forwarding toward the sink a topology report
+    received from a node.
+    TODO: explore the possibility of appending this node's topology report (if needed)
+    during forwarding to reduce packet traffic.
+*/
+void send_topology_report(my_collect_conn* conn, uint8_t forward) {
+    if (forward == 1) {
+            // TODO: improve performance by appending topology report to forwarding packet
+            unicast_send(&conn->uc, &conn->parent);
+            return;
+    }
+    // else
+    printf("Node %02x:%02x sending a topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
+    enum packet_type pt = topology_report;
+    tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
+
+    packetbuf_clear();
+    packetbuf_set_datalen(sizeof(tree_connection));
+    memcpy(packetbuf_dataptr(), &tc, sizeof(tree_connection));
+
+    packetbuf_hdralloc(sizeof(enum packet_type));
+    memcpy(packetbuf_hdrptr(), &pt, sizeof(enum packet_type));
+    unicast_send(&conn->uc, &conn->parent);
+}
 
 /*
     The node sends a beacon in broadcast to everyone.
@@ -159,9 +210,14 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
   //conn->parent = *sender;  // Dereference sender?
   // linkaddr_copy(&conn->parent, sender);
 
+  // Parent update
   if (!linkaddr_cmp(&conn->parent, sender)) {
         // update parent
         linkaddr_copy(&conn->parent, sender);
+        if (TOPOLOGY_REPORT) {
+            // send a topology report using the timer callback (RANDOM_DELAY: small time)
+            ctimer_set(&conn->topology_report_timer, RANDOM_DELAY, topology_report_timer_cb, conn);
+        }
     }
 
   // Retransmit the beacon since the metric has been updated.
@@ -218,7 +274,13 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
             break;
         case topology_report:
             printf("Node %02x:%02x receivd a unicast topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
-            // send_topology_report(conn, 1);  // 1: forwarding set to true
+            if (conn->is_sink) {
+                deliver_topology_report_to_sink(conn);
+            } else {
+                if (TOPOLOGY_REPORT) {
+                    send_topology_report(conn, 1);  // 1: forwarding set to true
+                }
+            }
             break;
         case downward_data_packet:
             printf("Node %02x:%02x receivd a unicast source routing packet\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);

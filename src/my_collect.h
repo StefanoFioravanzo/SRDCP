@@ -7,11 +7,17 @@
 #include "net/netstack.h"
 #include "core/net/linkaddr.h"
 
+// Allow or not to send topology reports.
+#define TOPOLOGY_REPORT 0
+
 #define MAX_NODES 30
 #define MAX_PATH_LENGTH 10
 
 #define BEACON_INTERVAL (CLOCK_SECOND*60)
 #define BEACON_FORWARD_DELAY (random_rand() % CLOCK_SECOND)
+// TODO: Add dynamic management of interval
+#define RANDOM_DELAY (random_rand() % CLOCK_SECOND)
+#define TOPOLOGY_REPORT_INTERVAL (CLOCK_SECOND*30)
 
 #define RSSI_THRESHOLD -95
 #define MAX_RETRANSMISSIONS 1
@@ -50,6 +56,7 @@ struct my_collect_conn {
     // address of parent node
     linkaddr_t parent;
     struct ctimer beacon_timer;
+    struct ctimer topology_report_timer;
     // metric: hop count
     uint16_t metric;
     // sequence number of the tree protocol
@@ -95,6 +102,12 @@ int sr_send(struct my_collect_conn*, const linkaddr_t*);
 void beacon_timer_cb(void* ptr);
 
 // -------- MESSAGE STRUCTURES --------
+
+struct tree_connection {
+    linkaddr_t node;
+    linkaddr_t parent;
+} __attribute__((packed));
+typedef struct tree_connection tree_connection;
 
 // Beacon message structure
 struct beacon_msg {
