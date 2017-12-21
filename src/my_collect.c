@@ -17,6 +17,18 @@ struct unicast_callbacks uc_cb = {.recv=uc_recv};
 //                                      DICT IMPLEMENTATION
 // -------------------------------------------------------------------------------------------------
 
+void print_dict_state(TreeDict* dict) {
+    int i;
+    for (i = 0; i < dict->len; i++) {
+        printf("\tDictEntry %d: node %02x:%02x - parent %02x:%02x\n",
+            i,
+            dict->entries[i].key.u8[0],
+            dict->entries[i].key.u8[1],
+            dict->entries[i].value.u8[0],
+            dict->entries[i].value.u8[1]);
+    }
+}
+
 int dict_find_index(TreeDict* dict, const linkaddr_t key) {
     int i;
     for (i = 0; i < dict->len; i++) {
@@ -53,9 +65,9 @@ int dict_add(TreeDict* dict, const linkaddr_t key, linkaddr_t value) {
        linkaddr_copy(&dict->entries[idx].value, &value);
        return 0;
    }
-   dict->len++;
    linkaddr_copy(&dict->entries[dict->len].key, &key);
    linkaddr_copy(&dict->entries[dict->len].value, &value);
+   dict->len++;
    return 0;
 }
 
@@ -125,6 +137,7 @@ void deliver_topology_report_to_sink(my_collect_conn* conn) {
 
     printf("Sink: received topology report. Updating parent of node %02x:%02x\n", tc.node.u8[0], tc.node.u8[1]);
     dict_add(&conn->routing_table, tc.node, tc.parent);
+    print_dict_state(dict);
 }
 
 /*
