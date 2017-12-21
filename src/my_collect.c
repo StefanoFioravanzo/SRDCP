@@ -96,7 +96,7 @@ void topology_report_timer_cb(void* ptr) {
     struct my_collect_conn *conn = ptr;
     send_topology_report(conn, 0);
 
-    ctimer_set(&conn->topology_report_timer, TOPOLOGY_REPORT_INTERVAL, topology_report_timer_cb, conn);
+    ctimer_set(&conn->topology_report_timer, TOPOLOGY_REPORT_INTERVAL_RAND, topology_report_timer_cb, conn);
 }
 
 // Beacon timer callback
@@ -139,9 +139,9 @@ void deliver_topology_report_to_sink(my_collect_conn* conn) {
 */
 void send_topology_report(my_collect_conn* conn, uint8_t forward) {
     if (forward == 1) {
-            // TODO: improve performance by appending topology report to forwarding packet
-            unicast_send(&conn->uc, &conn->parent);
-            return;
+        // TODO: improve performance by appending topology report to forwarding packet
+        unicast_send(&conn->uc, &conn->parent);
+        return;
     }
     // else
     printf("Node %02x:%02x sending a topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);

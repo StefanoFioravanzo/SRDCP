@@ -2,13 +2,14 @@
 #define MY_COLLECT_H
 
 #include <stdbool.h>
+#include <stdlib.h>
 #include "contiki.h"
 #include "net/rime/rime.h"
 #include "net/netstack.h"
 #include "core/net/linkaddr.h"
 
 // Allow or not to send topology reports.
-#define TOPOLOGY_REPORT 0
+#define TOPOLOGY_REPORT 1
 
 #define MAX_NODES 30
 #define MAX_PATH_LENGTH 10
@@ -18,6 +19,7 @@
 // TODO: Add dynamic management of interval
 #define RANDOM_DELAY (random_rand() % CLOCK_SECOND)
 #define TOPOLOGY_REPORT_INTERVAL (CLOCK_SECOND*30)
+#define TOPOLOGY_REPORT_INTERVAL_RAND ((rand() % (60 + 1 - 30) + 30)*CLOCK_SECOND)
 
 #define RSSI_THRESHOLD -95
 #define MAX_RETRANSMISSIONS 1
