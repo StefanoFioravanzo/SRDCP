@@ -72,6 +72,81 @@ int dict_add(TreeDict* dict, const linkaddr_t key, linkaddr_t value) {
 }
 
 // -------------------------------------------------------------------------------------------------
+//                                      ROUTING TABLE MANAGEMENT
+// -------------------------------------------------------------------------------------------------
+
+/*
+    Initialize the path by setting each entry to linkaddr_null
+*/
+void init_routing_path(my_collect_conn* conn) {
+    int i = 0;
+    linkaddr_t* path_ptr = conn->routing_table.tree_path;
+    while(i < MAX_PATH_LENGTH) {
+        linkaddr_copy(path_ptr, &linkaddr_null);
+        path_ptr++;
+        i++;
+    }
+}
+
+/*
+    Check if target is already in the path.
+    len: number of linkaddr_t elements already present in the path.
+*/
+int already_in_route(my_collect_conn* conn, uint8_t len, linkaddr_t* target) {
+    int i;
+    for (i = 0; i < len; i++) {
+        if (linkaddr_cmp(&conn->routing_table.tree_path[i], target)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/*
+    Search for a path from the sink to the destination node, going backwards
+    from the destiantion throught the parents. If not proper path is found returns 0,
+    otherwise the path length.
+    The linkddr_t addresses on the nodes in the path are written to the tree_path
+    array in the conn object.
+*/
+int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
+    init_routing_path(conn);
+
+    uint8_t path_len = 0;
+    linkaddr_t parent;
+    linkaddr_copy(&parent, dest);
+    do {
+        // copy into path the fist entry (dest node)
+        memcpy(&conn->routing_table.tree_path[path_len], &parent, sizeof(linkaddr_t));
+        parent = dict_find(&conn->routing_table, &parent);
+        // abort in case a node has not parent or the path presents a loop
+        if (linkaddr_cmp(&parent, &linkaddr_null) ||
+            already_in_route(conn, path_len, &parent))
+        {
+            return 0;
+        }
+        path_len++;
+    } while (!linkaddr_cmp(&parent, &sink_addr) && path_len < 10);
+
+    if (path_len > 10) {
+        // path too long
+        return 0;
+    }
+    return path_len;
+}
+
+void print_route(my_collect_conn* conn, uint8_t route_len) {
+    uint8_t i;
+    printf("Sink route to node:\n")
+    for (i = 0; i < len; i++) {
+        printf("\t%d: %02x:%02x\n",
+            i,
+            conn->routing_table.tree_path[i].u8[0],
+            conn->routing_table.tree_path[i].u8[1]);
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
 
 void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
                      bool is_sink, const struct my_collect_callbacks *callbacks)
@@ -297,11 +372,49 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
             break;
         case downward_data_packet:
             printf("Node %02x:%02x receivd a unicast source routing packet\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
-            // forward_downward_data(conn, sender);
+            forward_downward_data(conn, sender);
             break;
         default:
             printf("Packet type not recognized.\n");
     }
+}
+
+/*
+    Send data from the sink to a specific node in the network.
+    First, the sink has to compute the path from its routing table (avoiding loops)
+    Second, the sink creates a header with all the path and sends the packet to the first node
+    in the path.
+*/
+int sr_send(struct my_collect_conn*, const linkaddr_t*) {
+    // the sink sends a packet to `dest`.
+
+    if (!conn->is_sink) {
+        // if this is an ordinary node
+        return 0;
+    }
+
+    // populate the array present in the source_routing structure in conn.
+    int path_len = find_route(conn, dest);
+    print_route(conn, path_len);
+    if (path_len == 0) {
+        return 0;
+    }
+
+    enum packet_type pt = source_routing;
+    downward_data_packet_header hdr = {.hops=0, .path_len=path_len };
+
+    // allocate enough space in the header for the path
+    packetbuf_hdralloc(sizeof(enum packet_type) + sizeof(downward_data_packet_header) + sizeof(linkaddr_t) * path_len);
+    memcpy(packetbuf_hdrptr(), &pt, sizeof(enum packet_type));
+    memcpy(packetbuf_hdrptr() + sizeof(enum packet_type), &hdr, sizeof(downward_data_packet_header));
+    int i;
+    // copy path in inverse order.
+    for (i = path_len-1; i >= 0; i--) {  // path len because to insert the Nth element I do sizeof(linkaddr_t)*(N-1)
+        memcpy(packetbuf_hdrptr()+sizeof(enum packet_type)+sizeof(downward_data_packet_header)+sizeof(linkaddr_t)*(path_len-(i+1)),
+            &conn->routing_table.tree_path[i],
+            sizeof(linkaddr_t));
+    }
+    return unicast_send(&conn->uc, &conn->routing_table.tree_path[0]);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -333,5 +446,44 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
         // copy updated struct to packet header
         // memcpy(&hdr, packetbuf_hdrptr(), sizeof(struct collect_header));
         unicast_send(&conn->uc, &conn->parent);
+    }
+}
+
+/*
+    Packet forwarding from a node to another node in the path computed by the sink.
+    The node first checks that it is indeed the next hop in the path, then reduces the
+    header (removing itself) and sends the packet to the next node in the path.
+*/
+void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
+    linkaddr_t addr;
+    downward_data_packet_header hdr;
+
+    memcpy(&hdr, packetbuf_dataptr() + sizeof(enum packet_type), sizeof(downward_data_packet_header));
+    // Get first address in path
+    memcpy(&addr, packetbuf_dataptr() + sizeof(enum packet_type) + sizeof(downward_data_packet_header), sizeof(linkaddr_t));
+
+    if (linkaddr_cmp(&addr, &linkaddr_node_addr)) {
+        if (hdr.path_len == 1) {
+            // printf("Node %02x:%02x: seqn %d from sink\n",
+            //         linkaddr_node_addr.u8[0],
+            //         linkaddr_node_addr.u8[1],
+            //         seqn);
+            packetbuf_hdrreduce(sizeof(enum packet_type) + sizeof(downward_data_packet_header) + sizeof(linkddr_t));
+            conn->callbacks->sr_recv(conn, hdr.hops +1 );
+        } else {
+            // if the next hop is indeed this node
+            // reduce header and decrease path length
+            packetbuf_hdrreduce(sizeof(linkaddr_t));
+            hdr.path_len = hdr.path_len - 1;
+            enum packet_type pt = source_routing;
+            memcpy(packetbuf_dataptr(), &pt, sizeof(enum packet_type));
+            memcpy(packetbuf_dataptr() + sizeof(enum packet_type), &hdr, sizeof(downward_data_packet_header));
+            // get next addr in path
+            memcpy(&addr, packetbuf_dataptr()+sizeof(enum packet_type)+sizeof(downward_data_packet_header), sizeof(linkaddr_t));
+            unicast_send(&conn->uc, &addr);
+        }
+    } else {
+        printf("ERROR: Node %02x:%02x received sr message. Was meant for node %02x:%02x\n",
+            linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1], addr.u8[0], addr.u8[1]);
     }
 }

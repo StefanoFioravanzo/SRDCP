@@ -30,6 +30,8 @@ enum packet_type {
     topology_report = 2
 };
 
+// static const linkaddr_t sink_addr = {{0x01, 0x00}}; // node 1 will be our sink
+
 // --------------------------------------------------------------------
 //                              DICT STRUCTS
 // --------------------------------------------------------------------
@@ -124,5 +126,10 @@ struct upward_data_packet_header { // Header structure for data packets
     uint8_t piggy_len;  // 0 in case there is no piggybacking
 } __attribute__((packed));
 typedef struct upward_data_packet_header upward_data_packet_header;
+
+struct downward_data_packet_header {
+    uint8_t hops;
+    uint8_t path_len;
+}
 
 #endif //MY_COLLECT_H
