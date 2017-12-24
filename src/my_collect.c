@@ -137,8 +137,8 @@ int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
 
 void print_route(my_collect_conn* conn, uint8_t route_len) {
     uint8_t i;
-    printf("Sink route to node:\n")
-    for (i = 0; i < len; i++) {
+    printf("Sink route to node:\n");
+    for (i = 0; i < route_len; i++) {
         printf("\t%d: %02x:%02x\n",
             i,
             conn->routing_table.tree_path[i].u8[0],
@@ -212,7 +212,7 @@ void deliver_topology_report_to_sink(my_collect_conn* conn) {
 
     printf("Sink: received topology report. Updating parent of node %02x:%02x\n", tc.node.u8[0], tc.node.u8[1]);
     dict_add(&conn->routing_table, tc.node, tc.parent);
-    print_dict_state(dict);
+    print_dict_state(&conn->routing_table);
 }
 
 /*
@@ -385,7 +385,7 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
     Second, the sink creates a header with all the path and sends the packet to the first node
     in the path.
 */
-int sr_send(struct my_collect_conn*, const linkaddr_t*) {
+int sr_send(struct my_collect_conn* conn, const linkaddr_t* dest) {
     // the sink sends a packet to `dest`.
 
     if (!conn->is_sink) {
@@ -395,12 +395,12 @@ int sr_send(struct my_collect_conn*, const linkaddr_t*) {
 
     // populate the array present in the source_routing structure in conn.
     int path_len = find_route(conn, dest);
-    print_route(conn, path_len);
+    // print_route(conn, path_len);
     if (path_len == 0) {
         return 0;
     }
 
-    enum packet_type pt = source_routing;
+    enum packet_type pt = downward_data_packet;
     downward_data_packet_header hdr = {.hops=0, .path_len=path_len };
 
     // allocate enough space in the header for the path
@@ -468,14 +468,14 @@ void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
             //         linkaddr_node_addr.u8[0],
             //         linkaddr_node_addr.u8[1],
             //         seqn);
-            packetbuf_hdrreduce(sizeof(enum packet_type) + sizeof(downward_data_packet_header) + sizeof(linkddr_t));
+            packetbuf_hdrreduce(sizeof(enum packet_type) + sizeof(downward_data_packet_header) + sizeof(linkaddr_t));
             conn->callbacks->sr_recv(conn, hdr.hops +1 );
         } else {
             // if the next hop is indeed this node
             // reduce header and decrease path length
             packetbuf_hdrreduce(sizeof(linkaddr_t));
             hdr.path_len = hdr.path_len - 1;
-            enum packet_type pt = source_routing;
+            enum packet_type pt = downward_data_packet;
             memcpy(packetbuf_dataptr(), &pt, sizeof(enum packet_type));
             memcpy(packetbuf_dataptr() + sizeof(enum packet_type), &hdr, sizeof(downward_data_packet_header));
             // get next addr in path

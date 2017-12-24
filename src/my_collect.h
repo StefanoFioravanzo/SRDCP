@@ -24,6 +24,8 @@
 #define RSSI_THRESHOLD -95
 #define MAX_RETRANSMISSIONS 1
 
+static const linkaddr_t sink_addr = {{0x01, 0x00}}; // node 1 will be our sink
+
 enum packet_type {
     upward_data_packet = 0,
     downward_data_packet = 1,
@@ -130,6 +132,7 @@ typedef struct upward_data_packet_header upward_data_packet_header;
 struct downward_data_packet_header {
     uint8_t hops;
     uint8_t path_len;
-}
+} __attribute__((packed));
+typedef struct downward_data_packet_header downward_data_packet_header;
 
 #endif //MY_COLLECT_H
