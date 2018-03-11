@@ -160,6 +160,7 @@ void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
     conn->metric = 65535; // the max metric (means that the node is not connected yet)
     conn->beacon_seqn = 0;
     conn->callbacks = callbacks;
+    conn->treport_hold = 0;
 
     if (is_sink) {
         conn->is_sink = 1;
@@ -183,11 +184,30 @@ void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
 ------------ TIMER Callbacks ------------
 */
 
+
+/*
+    Called when waiting time to forward a topology report
+    has ended.
+*/
+void topology_report_hold_cb(void* ptr) {
+    struct my_collect_conn *conn = ptr;
+    if (conn->treport_hold == 1) {
+        conn->treport_hold = 0;
+        send_topology_report(conn, 0);
+    }
+}
+
+/*
+    Send a topology report, or activate
+    some smart logic to handle the need to report
+*/
 void topology_report_timer_cb(void* ptr) {
     struct my_collect_conn *conn = ptr;
-    send_topology_report(conn, 0);
+    // send_topology_report(conn, 0);
+    conn->treport_hold = 1;
 
-    ctimer_set(&conn->topology_report_timer, TOPOLOGY_REPORT_INTERVAL_RAND, topology_report_timer_cb, conn);
+    ctimer_set(&conn->treport_hold_timer, TOPOLOGY_REPORT_HOLD_TIME, topology_report_hold_cb, conn);
+    // ctimer_set(&conn->topology_report_timer, TOPOLOGY_REPORT_INTERVAL_RAND, topology_report_timer_cb, conn);
 }
 
 // Beacon timer callback
@@ -211,11 +231,17 @@ void beacon_timer_cb(void* ptr) {
 void deliver_topology_report_to_sink(my_collect_conn* conn) {
     // remove header information
     packetbuf_hdrreduce(sizeof(enum packet_type));
+    uint8_t len;
     tree_connection tc;
-    memcpy(&tc, packetbuf_dataptr(), sizeof(tree_connection));
 
-    printf("Sink: received topology report. Updating parent of node %02x:%02x\n", tc.node.u8[0], tc.node.u8[1]);
-    dict_add(&conn->routing_table, tc.node, tc.parent);
+    memcpy(&len, packetbuf_dataptr(), sizeof(uint8_t));
+    printf("Sink: received %d topology reports.", len);
+    int i;
+    for (i = 0; i < len; i++) {
+        memcpy(&tc, packetbuf_dataptr() + sizeof(tree_connection) * i, sizeof(tree_connection));
+        printf("Sink: received topology report. Updating parent of node %02x:%02x\n", tc.node.u8[0], tc.node.u8[1]);
+        dict_add(&conn->routing_table, tc.node, tc.parent);
+    }
     print_dict_state(&conn->routing_table);
 }
 
@@ -231,8 +257,23 @@ void deliver_topology_report_to_sink(my_collect_conn* conn) {
 */
 void send_topology_report(my_collect_conn* conn, uint8_t forward) {
     // Just forward upwward a topology report coming from child node
-    if (forward == 1) {
-        // TODO: improve performance by appending this node's topology report to forwarding packet
+    if (forward == 1 && conn->treport_hold == 1) {
+        // append to packet header the topology report
+        uint8_t len;
+        enum packet_type pt = topology_report;
+        tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
+
+        memcpy(&len, packetbuf_dataptr() + sizeof(enum packet_type), sizeof(uint8_t));
+        len = len + 1;
+
+        packetbuf_hdralloc(sizeof(tree_connection));
+        // Make the header and data buffer contiguous
+        packetbuf_compact();
+        memcpy(packetbuf_hdrptr(), &pt, sizeof(enum packet_type));
+        memcpy(packetbuf_hdrptr() + sizeof(enum packet_type), &len, sizeof(uint8_t));
+        memcpy(packetbuf_hdrptr() + sizeof(enum packet_type) + sizeof(uint8_t), &tc, sizeof(tree_connection));
+
+        conn->treport_hold=0;
         unicast_send(&conn->uc, &conn->parent);
         return;
     }
@@ -241,13 +282,15 @@ void send_topology_report(my_collect_conn* conn, uint8_t forward) {
     printf("Node %02x:%02x sending a topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
     enum packet_type pt = topology_report;
     tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
+    uint8_t len = 1;
 
     packetbuf_clear();
     packetbuf_set_datalen(sizeof(tree_connection));
     memcpy(packetbuf_dataptr(), &tc, sizeof(tree_connection));
 
-    packetbuf_hdralloc(sizeof(enum packet_type));
+    packetbuf_hdralloc(sizeof(enum packet_type) + sizeof(uint8_t));
     memcpy(packetbuf_hdrptr(), &pt, sizeof(enum packet_type));
+    memcpy(packetbuf_hdrptr() + sizeof(enum packet_type), &len, sizeof(uint8_t));
     unicast_send(&conn->uc, &conn->parent);
 }
 

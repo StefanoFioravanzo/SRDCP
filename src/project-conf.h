@@ -14,8 +14,8 @@
 #define RF_BLE_CONF_ENABLED                   0
 /*---------------------------------------------------------------------------*/
 #undef NETSTACK_RDC
-#define NETSTACK_RDC nullrdc_driver
-//#define NETSTACK_RDC contikimac_driver
+// #define NETSTACK_RDC nullrdc_driver
+#define NETSTACK_RDC contikimac_driver
 #define NULLRDC_802154_AUTOACK 1
 /*---------------------------------------------------------------------------*/
 #endif /* PROJECT_CONF_H_ */

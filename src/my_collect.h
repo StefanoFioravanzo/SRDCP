@@ -9,17 +9,19 @@
 #include "core/net/linkaddr.h"
 
 // Allow or not to send topology reports.
-#define TOPOLOGY_REPORT 1
+#define TOPOLOGY_REPORT 0
 
 #define MAX_NODES 30
 #define MAX_PATH_LENGTH 10
 
 #define BEACON_INTERVAL (CLOCK_SECOND*60)
-#define BEACON_FORWARD_DELAY (random_rand() % CLOCK_SECOND)
+#define BEACON_FORWARD_DELAY (random_rand() % (CLOCK_SECOND*4))
 // TODO: Add dynamic management of interval
-#define RANDOM_DELAY (random_rand() % CLOCK_SECOND)
+#define RANDOM_DELAY (random_rand() % (CLOCK_SECOND*4))
 #define TOPOLOGY_REPORT_INTERVAL (CLOCK_SECOND*30)
 #define TOPOLOGY_REPORT_INTERVAL_RAND ((rand() % (60 + 1 - 30) + 30)*CLOCK_SECOND)
+
+#define TOPOLOGY_REPORT_HOLD_TIME (CLOCK_SECOND*15)
 
 #define RSSI_THRESHOLD -95
 #define MAX_RETRANSMISSIONS 1
@@ -69,6 +71,11 @@ struct my_collect_conn {
     uint8_t is_sink;  // 1: is_sink, 0: not_sink
     // tree table (used only in the sink)
     TreeDict routing_table;
+
+    // 1: Wait to send topology report (may be able to append to incoming t-report)
+    // 0: Send topology report right away
+    uint8_t treport_hold;
+    struct ctimer treport_hold_timer;
 };
 typedef struct my_collect_conn my_collect_conn;
 
