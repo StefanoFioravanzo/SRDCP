@@ -106,7 +106,7 @@ int already_in_route(my_collect_conn* conn, uint8_t len, linkaddr_t* target) {
     Search for a path from the sink to the destination node, going backwards
     from the destiantion throught the parents. If not proper path is found returns 0,
     otherwise the path length.
-    The linkddr_t addresses on the nodes in the path are written to the tree_path
+    The linkddr_t addresses of the nodes in the path are written to the tree_path
     array in the conn object.
 */
 int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
@@ -119,10 +119,12 @@ int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
         // copy into path the fist entry (dest node)
         memcpy(&conn->routing_table.tree_path[path_len], &parent, sizeof(linkaddr_t));
         parent = dict_find(&conn->routing_table, &parent);
-        // abort in case a node has not parent or the path presents a loop
+        // abort in case a node has no parent or the path presents a loop
         if (linkaddr_cmp(&parent, &linkaddr_null) ||
             already_in_route(conn, path_len, &parent))
         {
+            printf("PATH ERROR: cannot build path for destination node: %02x:%02x. Loop detected.",
+                (*dest).u8[0], (*dest).u8[1]);
             return 0;
         }
         path_len++;
@@ -130,14 +132,16 @@ int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
 
     if (path_len > 10) {
         // path too long
+        printf("PATH ERROR: Path too long for destination node: %02x:%02x",
+            (*dest).u8[0], (*dest).u8[1]);
         return 0;
     }
     return path_len;
 }
 
-void print_route(my_collect_conn* conn, uint8_t route_len) {
+void print_route(my_collect_conn* conn, uint8_t route_len, const linkaddr_t* dest) {
     uint8_t i;
-    printf("Sink route to node:\n");
+    printf("Sink route to node %02x:%02x:\n", (*dest).u8[0], (*dest).u8[1]);
     for (i = 0; i < route_len; i++) {
         printf("\t%d: %02x:%02x\n",
             i,
@@ -226,12 +230,14 @@ void deliver_topology_report_to_sink(my_collect_conn* conn) {
     during forwarding to reduce packet traffic.
 */
 void send_topology_report(my_collect_conn* conn, uint8_t forward) {
+    // Just forward upwward a topology report coming from child node
     if (forward == 1) {
-        // TODO: improve performance by appending topology report to forwarding packet
+        // TODO: improve performance by appending this node's topology report to forwarding packet
         unicast_send(&conn->uc, &conn->parent);
         return;
     }
     // else
+    // Init this node's topology report and send to parent
     printf("Node %02x:%02x sending a topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
     enum packet_type pt = topology_report;
     tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
@@ -257,7 +263,13 @@ void send_beacon(struct my_collect_conn* conn) {
     broadcast_send(&conn->bc);
 }
 
-// Beacon receive callback
+/*
+    Broadcast receive callback
+
+    Here we manage the beacon receive logic.
+    The beacon is the only message sent in broadcast, initiated by the sink
+    every BEACON_INTERVAL seconds.
+*/
 void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     struct beacon_msg beacon;
     int8_t rssi;
@@ -266,7 +278,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     offsetof(struct my_collect_conn, bc));
 
     if (packetbuf_datalen() != sizeof(struct beacon_msg)) {
-        printf("my_collect: broadcast of wrong size\n");
+        printf("my_collect: broadcast of wrong size (not a beacon)\n");
         return;
     }
     memcpy(&beacon, packetbuf_dataptr(), sizeof(struct beacon_msg));
@@ -316,7 +328,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
 
 // Our send function
 int my_collect_send(struct my_collect_conn *conn) {
-    struct upward_data_packet_header hdr = {.source=linkaddr_node_addr, .hops=0};
+    struct upward_data_packet_header hdr = {.source=linkaddr_node_addr, .hops=0, .piggy_len=0};
 
     enum packet_type pt = upward_data_packet;
 
@@ -382,8 +394,8 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
 /*
     Send data from the sink to a specific node in the network.
     First, the sink has to compute the path from its routing table (avoiding loops)
-    Second, the sink creates a header with all the path and sends the packet to the first node
-    in the path.
+    Second, the sink creates a header containing the path and sends the packet to the
+    first node of the path.
 */
 int sr_send(struct my_collect_conn* conn, const linkaddr_t* dest) {
     // the sink sends a packet to `dest`.
@@ -395,8 +407,10 @@ int sr_send(struct my_collect_conn* conn, const linkaddr_t* dest) {
 
     // populate the array present in the source_routing structure in conn.
     int path_len = find_route(conn, dest);
-    // print_route(conn, path_len);
+    print_route(conn, path_len, dest);
     if (path_len == 0) {
+        // printf("PATH ERROR: Path with len 0 for destination node: %02x:%02x",
+        //     (*dest).u8[0], (*dest).u8[1]);
         return 0;
     }
 
@@ -408,13 +422,13 @@ int sr_send(struct my_collect_conn* conn, const linkaddr_t* dest) {
     memcpy(packetbuf_hdrptr(), &pt, sizeof(enum packet_type));
     memcpy(packetbuf_hdrptr() + sizeof(enum packet_type), &hdr, sizeof(downward_data_packet_header));
     int i;
-    // copy path in inverse order.
+    // copy path in reverse order.
     for (i = path_len-1; i >= 0; i--) {  // path len because to insert the Nth element I do sizeof(linkaddr_t)*(N-1)
         memcpy(packetbuf_hdrptr()+sizeof(enum packet_type)+sizeof(downward_data_packet_header)+sizeof(linkaddr_t)*(path_len-(i+1)),
             &conn->routing_table.tree_path[i],
             sizeof(linkaddr_t));
     }
-    return unicast_send(&conn->uc, &conn->routing_table.tree_path[0]);
+    return unicast_send(&conn->uc, &conn->routing_table.tree_path[path_len-1]);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -464,10 +478,9 @@ void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
 
     if (linkaddr_cmp(&addr, &linkaddr_node_addr)) {
         if (hdr.path_len == 1) {
-            // printf("Node %02x:%02x: seqn %d from sink\n",
-            //         linkaddr_node_addr.u8[0],
-            //         linkaddr_node_addr.u8[1],
-            //         seqn);
+            printf("PATH COMPLETE: Node %02x:%02x: seqn ?? from sink\n",
+                    linkaddr_node_addr.u8[0],
+                    linkaddr_node_addr.u8[1]);
             packetbuf_hdrreduce(sizeof(enum packet_type) + sizeof(downward_data_packet_header) + sizeof(linkaddr_t));
             conn->callbacks->sr_recv(conn, hdr.hops +1 );
         } else {

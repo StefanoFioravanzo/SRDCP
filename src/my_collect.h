@@ -32,8 +32,6 @@ enum packet_type {
     topology_report = 2
 };
 
-// static const linkaddr_t sink_addr = {{0x01, 0x00}}; // node 1 will be our sink
-
 // --------------------------------------------------------------------
 //                              DICT STRUCTS
 // --------------------------------------------------------------------
