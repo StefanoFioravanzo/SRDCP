@@ -388,13 +388,16 @@ int my_collect_send(struct my_collect_conn *conn) {
     if (linkaddr_cmp(&conn->parent, &linkaddr_null))
         return 0; // no parent
 
-    packetbuf_hdralloc(sizeof(enum packet_type) + sizeof(upward_data_packet_header) + sizeof(tree_connection));
-    memcpy(packetbuf_hdrptr(), &pt, sizeof(enum packet_type));
-    memcpy(packetbuf_hdrptr() + sizeof(enum packet_type), &hdr, sizeof(upward_data_packet_header));
-    if (PIGGYBACKING == 1) {
+    if (PIGGYBACKING == 1 ) {
+        packetbuf_hdralloc(sizeof(enum packet_type) + sizeof(upward_data_packet_header) + sizeof(tree_connection));
+        memcpy(packetbuf_hdrptr(), &pt, sizeof(enum packet_type));
+        memcpy(packetbuf_hdrptr() + sizeof(enum packet_type), &hdr, sizeof(upward_data_packet_header));
         memcpy(packetbuf_hdrptr() + sizeof(enum packet_type) + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
+    } else {
+        packetbuf_hdralloc(sizeof(enum packet_type) + sizeof(upward_data_packet_header));
+        memcpy(packetbuf_hdrptr(), &pt, sizeof(enum packet_type));
+        memcpy(packetbuf_hdrptr() + sizeof(enum packet_type), &hdr, sizeof(upward_data_packet_header));
     }
-
     return unicast_send(&conn->uc, &conn->parent);
 }
 
@@ -529,13 +532,15 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
     // if this is the sink
     if (conn->is_sink == 1){
         packetbuf_hdrreduce(sizeof(enum packet_type) + sizeof(upward_data_packet_header));
-        tree_connection tc;
-        uint8_t i;
-        for (i = 0; i < hdr.piggy_len; i++) {
-            memcpy(&tc, packetbuf_dataptr() + sizeof(tree_connection) * i, sizeof(tree_connection));
-            dict_add(&conn->routing_table, tc.node, tc.parent);
+        if (PIGGYBACKING == 1) {
+            tree_connection tc;
+            uint8_t i;
+            for (i = 0; i < hdr.piggy_len; i++) {
+                memcpy(&tc, packetbuf_dataptr() + sizeof(tree_connection) * i, sizeof(tree_connection));
+                dict_add(&conn->routing_table, tc.node, tc.parent);
+            }
+            packetbuf_hdrreduce(sizeof(tree_connection) * hdr.piggy_len);
         }
-        packetbuf_hdrreduce(sizeof(tree_connection) * hdr.piggy_len);
         conn->callbacks->recv(&hdr.source, hdr.hops +1 );
     }else{
         hdr.hops = hdr.hops+1;
