@@ -10,6 +10,7 @@
 
 // Allow or not to send topology reports.
 #define TOPOLOGY_REPORT 0
+#define PIGGYBACKING 1
 
 #define MAX_NODES 30
 #define MAX_PATH_LENGTH 10

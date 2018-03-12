@@ -56,19 +56,23 @@ int dict_add(TreeDict* dict, const linkaddr_t key, linkaddr_t value) {
     Adds a new entry to the Dictionary
     In case the key already exists, it replaces the value
     */
+    printf("Dictionary add: key: %02x:%02x value: %02x:%02x\n",
+            key.u8[0], key.u8[1], value.u8[0], value.u8[1]);
+            int idx = dict_find_index(dict, key);
+    if (idx != -1) {  // Element already present, update its value
+        linkaddr_copy(&dict->entries[idx].value, &value);
+        return 0;
+    }
+    // Try to insert new element
     if (dict->len == MAX_NODES) {
-        printf("Dictionary is full. MAX_NODES cap reached.");
+        printf("Dictionary is full. MAX_NODES cap reached. Proposed key: %02x:%02x value: %02x:%02x\n",
+                key.u8[0], key.u8[1], value.u8[0], value.u8[1]);
         return -1;
     }
-   int idx = dict_find_index(dict, key);
-   if (idx != -1) {  // Element already present, update its value
-       linkaddr_copy(&dict->entries[idx].value, &value);
-       return 0;
-   }
-   linkaddr_copy(&dict->entries[dict->len].key, &key);
-   linkaddr_copy(&dict->entries[dict->len].value, &value);
-   dict->len++;
-   return 0;
+    linkaddr_copy(&dict->entries[dict->len].key, &key);
+    linkaddr_copy(&dict->entries[dict->len].value, &value);
+    dict->len++;
+    return 0;
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -371,16 +375,25 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
 
 // Our send function
 int my_collect_send(struct my_collect_conn *conn) {
-    struct upward_data_packet_header hdr = {.source=linkaddr_node_addr, .hops=0, .piggy_len=0};
+    uint8_t piggy_len = 0;
+    // piggyback information
+    tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};;
+    if (PIGGYBACKING == 1) {
+        piggy_len = 1;
+    }
 
+    struct upward_data_packet_header hdr = {.source=linkaddr_node_addr, .hops=0, .piggy_len=piggy_len};
     enum packet_type pt = upward_data_packet;
 
     if (linkaddr_cmp(&conn->parent, &linkaddr_null))
         return 0; // no parent
 
-    packetbuf_hdralloc(sizeof(enum packet_type) + sizeof(upward_data_packet_header));
+    packetbuf_hdralloc(sizeof(enum packet_type) + sizeof(upward_data_packet_header) + sizeof(tree_connection));
     memcpy(packetbuf_hdrptr(), &pt, sizeof(enum packet_type));
     memcpy(packetbuf_hdrptr() + sizeof(enum packet_type), &hdr, sizeof(upward_data_packet_header));
+    if (PIGGYBACKING == 1) {
+        memcpy(packetbuf_hdrptr() + sizeof(enum packet_type) + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
+    }
 
     return unicast_send(&conn->uc, &conn->parent);
 }
@@ -479,6 +492,29 @@ int sr_send(struct my_collect_conn* conn, const linkaddr_t* dest) {
 // -------------------------------------------------------------------------------------------------
 
 /*
+    Check the presence of an address in the piggybacked blocks
+    present in the packet.
+    This check is needed in case of a loop in the path which would result
+    in the addition of the same entry in the header of the packet over and over.
+*/
+bool check_address_in_piggyback_block(uint8_t piggy_len, linkaddr_t node) {
+    printf("Checking piggy address: %02x:%02x\n", node.u8[0], node.u8[1]);
+    uint8_t i;
+    tree_connection tc;
+    for (i = 0; i < piggy_len; i++) {
+        memcpy(&tc,
+            packetbuf_dataptr() + sizeof(enum packet_type) + sizeof(upward_data_packet_header),
+            sizeof(tree_connection));
+        if (linkaddr_cmp(&tc.node, &node)) {
+            printf("Checking piggy address found: %02x:%02x\n", node.u8[0], node.u8[1]);
+            return true;
+        }
+    }
+    printf("Checking piggy address NOT found: %02x:%02x\n", node.u8[0], node.u8[1]);
+    return false;
+}
+
+/*
     Forwarding or collection of data sent from one node to the sink.
 
         - Sink: Counts the number of topology informations with piggy_len present in the header.
@@ -493,15 +529,32 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
     // if this is the sink
     if (conn->is_sink == 1){
         packetbuf_hdrreduce(sizeof(enum packet_type) + sizeof(upward_data_packet_header));
+        tree_connection tc;
+        uint8_t i;
+        for (i = 0; i < hdr.piggy_len; i++) {
+            memcpy(&tc, packetbuf_dataptr() + sizeof(tree_connection) * i, sizeof(tree_connection));
+            dict_add(&conn->routing_table, tc.node, tc.parent);
+        }
+        packetbuf_hdrreduce(sizeof(tree_connection) * hdr.piggy_len);
         conn->callbacks->recv(&hdr.source, hdr.hops +1 );
     }else{
-        // copy pakcet header to local struct
-
-        // update struct
         hdr.hops = hdr.hops+1;
-        memcpy(packetbuf_dataptr() + sizeof(enum packet_type), &hdr, sizeof(upward_data_packet_header));
-        // copy updated struct to packet header
-        // memcpy(&hdr, packetbuf_hdrptr(), sizeof(struct collect_header));
+        // alloc space for piggyback information
+        if (PIGGYBACKING == 1 && !check_address_in_piggyback_block(hdr.piggy_len, linkaddr_node_addr)) {
+            packetbuf_hdralloc(sizeof(tree_connection));
+            packetbuf_compact();  //TODO: Needed?
+            tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
+            hdr.piggy_len = hdr.piggy_len+1;
+
+            printf("Adding tree_connection to piggyinfo: key %02x:%02x value: %02x:%02x\n",
+                tc.node.u8[0], tc.node.u8[1], tc.parent.u8[0], tc.parent.u8[1]);
+
+            memcpy(packetbuf_hdrptr(), packetbuf_dataptr(), sizeof(enum packet_type));
+            memcpy(packetbuf_hdrptr() + sizeof(enum packet_type), &hdr, sizeof(upward_data_packet_header));
+            memcpy(packetbuf_hdrptr() + sizeof(enum packet_type) + sizeof(upward_data_packet_header), &tc, sizeof(tree_connection));
+        } else {
+            memcpy(packetbuf_dataptr() + sizeof(enum packet_type), &hdr, sizeof(upward_data_packet_header));
+        }
         unicast_send(&conn->uc, &conn->parent);
     }
 }
