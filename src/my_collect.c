@@ -249,6 +249,25 @@ void deliver_topology_report_to_sink(my_collect_conn* conn) {
     print_dict_state(&conn->routing_table);
 }
 
+bool check_address_in_topologyreport_block(my_collect_conn* conn, linkaddr_t node) {
+    printf("Checking topology report address: %02x:%02x\n", node.u8[0], node.u8[1]);
+    uint8_t len;
+    memcpy(&len, packetbuf_dataptr() + sizeof(enum packet_type), sizeof(uint8_t));
+    tree_connection tc;
+    uint8_t i;
+    for (i = 0; i < len; i++) {
+        memcpy(&tc,
+            packetbuf_dataptr() + sizeof(enum packet_type) + sizeof(uint8_t) + sizeof(tree_connection) * i,
+            sizeof(tree_connection));
+        if (linkaddr_cmp(&tc.node, &linkaddr_node_addr)) {
+            printf("Checking top report address found: %02x:%02x\n", node.u8[0], node.u8[1]);
+            return true;
+        }
+    }
+    printf("Checking top report address NOT found: %02x:%02x\n", node.u8[0], node.u8[1]);
+    return false;
+}
+
 /*
     The node sends a topology report to its parent.
     Topology report is sent when the node changes its parent or after too much
@@ -256,12 +275,10 @@ void deliver_topology_report_to_sink(my_collect_conn* conn) {
 
     This method is also used for forwarding toward the sink a topology report
     received from a node.
-    TODO: explore the possibility of appending this node's topology report (if needed)
-    during forwarding to reduce packet traffic.
 */
 void send_topology_report(my_collect_conn* conn, uint8_t forward) {
     // Just forward upwward a topology report coming from child node
-    if (forward == 1 && conn->treport_hold == 1) {
+    if (forward == 1 && conn->treport_hold == 1 && !check_address_in_topologyreport_block(conn, linkaddr_node_addr)) {
         // append to packet header the topology report
         uint8_t len;
         enum packet_type pt = topology_report;
@@ -278,6 +295,8 @@ void send_topology_report(my_collect_conn* conn, uint8_t forward) {
         memcpy(packetbuf_hdrptr() + sizeof(enum packet_type) + sizeof(uint8_t), &tc, sizeof(tree_connection));
 
         conn->treport_hold=0;
+        // reset timer (no need to send this topology report with dedicated packet anymore)
+        ctimer_stop(&conn->treport_hold_timer);
         unicast_send(&conn->uc, &conn->parent);
         return;
     }
@@ -547,7 +566,7 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
         // alloc space for piggyback information
         if (PIGGYBACKING == 1 && !check_address_in_piggyback_block(hdr.piggy_len, linkaddr_node_addr)) {
             packetbuf_hdralloc(sizeof(tree_connection));
-            packetbuf_compact();  //TODO: Needed?
+            packetbuf_compact();
             tree_connection tc = {.node=linkaddr_node_addr, .parent=conn->parent};
             hdr.piggy_len = hdr.piggy_len+1;
 
