@@ -381,8 +381,8 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
         // update parent
         linkaddr_copy(&conn->parent, sender);
         if (TOPOLOGY_REPORT) {
-            // send a topology report using the timer callback (RANDOM_DELAY: small time)
-            ctimer_set(&conn->topology_report_timer, RANDOM_DELAY, topology_report_timer_cb, conn);
+            // send a topology report using the timer callback (TOPOLOGY_REPORT_INIT_DELAY: small time)
+            ctimer_set(&conn->topology_report_timer, TOPOLOGY_REPORT_INIT_DELAY, topology_report_timer_cb, conn);
         }
     }
 

@@ -69,6 +69,7 @@ PROCESS_THREAD(app_process, ev, data)
 #if APP_DOWNWARD_TRAFFIC == 1
     /* Wait a bit longer at the beginning to gather enough topology information */
     etimer_set(&periodic, 75 * CLOCK_SECOND);
+    // etimer_set(&periodic, 120 * CLOCK_SECOND);
     while(1) {
       PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic));
       /* Fixed interval */
