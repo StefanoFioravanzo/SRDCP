@@ -13,6 +13,9 @@
 #define RF_CORE_CONF_CHANNEL                 26
 #define RF_BLE_CONF_ENABLED                   0
 /*---------------------------------------------------------------------------*/
+// https://github.com/contiki-os/contiki/wiki/Change-mac-or-radio-duty-cycling-protocols
+#undef NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
+#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 8
 #undef NETSTACK_RDC
 // #define NETSTACK_RDC nullrdc_driver
 #define NETSTACK_RDC contikimac_driver

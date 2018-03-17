@@ -10,7 +10,7 @@ TARGET ?= sky
 DEFINES=PROJECT_CONF_H=\"project-conf.h\"
 CONTIKI_PROJECT = app
 
-PROJECT_SOURCEFILES += my_collect.c
+PROJECT_SOURCEFILES += my_collect.c routing_table.c topology_report.c
 
 all: $(CONTIKI_PROJECT)
 
