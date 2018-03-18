@@ -9,7 +9,7 @@
 #include "core/net/linkaddr.h"
 
 // Allow or not to send topology reports.
-#define TOPOLOGY_REPORT 0
+#define TOPOLOGY_REPORT 1
 #define PIGGYBACKING 1
 
 #define MAX_NODES 30

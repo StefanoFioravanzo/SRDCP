@@ -122,9 +122,9 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
         linkaddr_copy(&conn->parent, sender);
         if (TOPOLOGY_REPORT) {
             // send a topology report using the timer callback
-            &conn->treport_hold=1;
-            ctimer_stop($conn->topology_report_timer);
-            ctimer_set(&conn->topology_report_timer, TOPOLOGY_REPORT_HOLD_TIME, topology_report_hold_cb, conn);
+            conn->treport_hold=1;
+            ctimer_stop(&conn->treport_hold_timer);
+            ctimer_set(&conn->treport_hold_timer, TOPOLOGY_REPORT_HOLD_TIME, topology_report_hold_cb, conn);
         }
     }
 
@@ -154,7 +154,7 @@ int my_collect_send(struct my_collect_conn *conn) {
     if (PIGGYBACKING == 1) {
         piggy_len = 1;
     }
-x
+
     struct upward_data_packet_header hdr = {.source=linkaddr_node_addr, .hops=0, .piggy_len=piggy_len};
     enum packet_type pt = upward_data_packet;
 
@@ -248,7 +248,7 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
         case topology_report:
             if (TOPOLOGY_REPORT==0) {
                 printf("ERROR: Received a topoloy report with TOPOLOGY_REPORT=0. Node: %02x:%02x\n",
-                    linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]),
+                    linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
             } else {
                 printf("Node %02x:%02x receivd a unicast topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
                 if (conn->is_sink) {
@@ -314,8 +314,8 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
         if (PIGGYBACKING == 1) {
             tree_connection tc;
             uint8_t i;
-            if (piggy_len > MAX_PATH_LENGTH) {
-                printf("ERROR: Piggy len=%d, path is supposed to be max %d\n", piggy_len, MAX_PATH_LENGTH);
+            if (hdr.piggy_len > MAX_PATH_LENGTH) {
+                printf("ERROR: Piggy len=%d, path is supposed to be max %d\n", hdr.piggy_len, MAX_PATH_LENGTH);
             }
             for (i = 0; i < hdr.piggy_len; i++) {
                 memcpy(&tc, packetbuf_dataptr() + sizeof(tree_connection) * i, sizeof(tree_connection));
