@@ -116,7 +116,7 @@ int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
         if (linkaddr_cmp(&parent, &linkaddr_null) ||
             already_in_route(conn, path_len, &parent))
         {
-            printf("PATH ERROR: cannot build path for destination node: %02x:%02x. Loop detected.",
+            printf("PATH ERROR: cannot build path for destination node: %02x:%02x. Loop detected.\n",
                 (*dest).u8[0], (*dest).u8[1]);
             return 0;
         }
@@ -125,7 +125,7 @@ int find_route(my_collect_conn* conn, const linkaddr_t *dest) {
 
     if (path_len > 10) {
         // path too long
-        printf("PATH ERROR: Path too long for destination node: %02x:%02x",
+        printf("PATH ERROR: Path too long for destination node: %02x:%02x\n",
             (*dest).u8[0], (*dest).u8[1]);
         return 0;
     }

@@ -9,7 +9,7 @@
   <simulation>
     <title>My simulation</title>
     <speedlimit>1.0</speedlimit>
-    <randomseed>123456</randomseed>
+    <randomseed>generated</randomseed>
     <motedelay_us>1000000</motedelay_us>
     <radiomedium>
       org.contikios.cooja.radiomediums.UDGM

@@ -115,17 +115,16 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
   }
   // update metric (hop count)
   conn->metric = beacon.metric+1;
-  // update parent
-  //conn->parent = *sender;  // Dereference sender?
-  // linkaddr_copy(&conn->parent, sender);
 
   // Parent update
   if (!linkaddr_cmp(&conn->parent, sender)) {
         // update parent
         linkaddr_copy(&conn->parent, sender);
         if (TOPOLOGY_REPORT) {
-            // send a topology report using the timer callback (TOPOLOGY_REPORT_INIT_DELAY: small time)
-            ctimer_set(&conn->topology_report_timer, TOPOLOGY_REPORT_INIT_DELAY, topology_report_timer_cb, conn);
+            // send a topology report using the timer callback
+            &conn->treport_hold=1;
+            ctimer_stop($conn->topology_report_timer);
+            ctimer_set(&conn->topology_report_timer, TOPOLOGY_REPORT_HOLD_TIME, topology_report_hold_cb, conn);
         }
     }
 
@@ -155,7 +154,7 @@ int my_collect_send(struct my_collect_conn *conn) {
     if (PIGGYBACKING == 1) {
         piggy_len = 1;
     }
-
+x
     struct upward_data_packet_header hdr = {.source=linkaddr_node_addr, .hops=0, .piggy_len=piggy_len};
     enum packet_type pt = upward_data_packet;
 
@@ -184,8 +183,6 @@ int my_collect_send(struct my_collect_conn *conn) {
     first node of the path.
 */
 int sr_send(struct my_collect_conn* conn, const linkaddr_t* dest) {
-    // the sink sends a packet to `dest`.
-
     if (!conn->is_sink) {
         // if this is an ordinary node
         return 0;
@@ -249,11 +246,14 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
             forward_upward_data(conn, sender);
             break;
         case topology_report:
-            printf("Node %02x:%02x receivd a unicast topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
-            if (conn->is_sink) {
-                deliver_topology_report_to_sink(conn);
+            if (TOPOLOGY_REPORT==0) {
+                printf("ERROR: Received a topoloy report with TOPOLOGY_REPORT=0. Node: %02x:%02x\n",
+                    linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]),
             } else {
-                if (TOPOLOGY_REPORT) {
+                printf("Node %02x:%02x receivd a unicast topology report\n", linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1]);
+                if (conn->is_sink) {
+                    deliver_topology_report_to_sink(conn);
+                } else {
                     send_topology_report(conn, 1);  // 1: forwarding set to true
                 }
             }
@@ -276,6 +276,8 @@ void uc_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
     present in the packet.
     This check is needed in case of a loop in the path which would result
     in the addition of the same entry in the header of the packet over and over.
+    This should never happen by design (the beacons structure prevents this)
+    but caution is never too much :)
 */
 bool check_address_in_piggyback_block(uint8_t piggy_len, linkaddr_t node) {
     printf("Checking piggy address: %02x:%02x\n", node.u8[0], node.u8[1]);
@@ -286,11 +288,11 @@ bool check_address_in_piggyback_block(uint8_t piggy_len, linkaddr_t node) {
             packetbuf_dataptr() + sizeof(enum packet_type) + sizeof(upward_data_packet_header),
             sizeof(tree_connection));
         if (linkaddr_cmp(&tc.node, &node)) {
-            printf("Checking piggy address found: %02x:%02x\n", node.u8[0], node.u8[1]);
+            printf("ERROR: Checking piggy address found: %02x:%02x\n", node.u8[0], node.u8[1]);
             return true;
         }
     }
-    printf("Checking piggy address NOT found: %02x:%02x\n", node.u8[0], node.u8[1]);
+    // printf("Checking piggy address NOT found: %02x:%02x\n", node.u8[0], node.u8[1]);
     return false;
 }
 
@@ -312,6 +314,9 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender) {
         if (PIGGYBACKING == 1) {
             tree_connection tc;
             uint8_t i;
+            if (piggy_len > MAX_PATH_LENGTH) {
+                printf("ERROR: Piggy len=%d, path is supposed to be max %d\n", piggy_len, MAX_PATH_LENGTH);
+            }
             for (i = 0; i < hdr.piggy_len; i++) {
                 memcpy(&tc, packetbuf_dataptr() + sizeof(tree_connection) * i, sizeof(tree_connection));
                 dict_add(&conn->routing_table, tc.node, tc.parent);
@@ -353,16 +358,15 @@ void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
     memcpy(&hdr, packetbuf_dataptr() + sizeof(enum packet_type), sizeof(downward_data_packet_header));
     // Get first address in path
     memcpy(&addr, packetbuf_dataptr() + sizeof(enum packet_type) + sizeof(downward_data_packet_header), sizeof(linkaddr_t));
-
+    // This is the correct recipient
     if (linkaddr_cmp(&addr, &linkaddr_node_addr)) {
         if (hdr.path_len == 1) {
-            printf("PATH COMPLETE: Node %02x:%02x: seqn ?? from sink\n",
+            printf("PATH COMPLETE: Node %02x:%02x delivers packet from sink\n",
                     linkaddr_node_addr.u8[0],
                     linkaddr_node_addr.u8[1]);
             packetbuf_hdrreduce(sizeof(enum packet_type) + sizeof(downward_data_packet_header) + sizeof(linkaddr_t));
             conn->callbacks->sr_recv(conn, hdr.hops +1 );
         } else {
-            // if the next hop is indeed this node
             // reduce header and decrease path length
             packetbuf_hdrreduce(sizeof(linkaddr_t));
             hdr.path_len = hdr.path_len - 1;
@@ -370,7 +374,7 @@ void forward_downward_data(my_collect_conn *conn, const linkaddr_t *sender) {
             memcpy(packetbuf_dataptr(), &pt, sizeof(enum packet_type));
             memcpy(packetbuf_dataptr() + sizeof(enum packet_type), &hdr, sizeof(downward_data_packet_header));
             // get next addr in path
-            memcpy(&addr, packetbuf_dataptr()+sizeof(enum packet_type)+sizeof(downward_data_packet_header), sizeof(linkaddr_t));
+            memcpy(&addr, packetbuf_dataptr() + sizeof(enum packet_type) + sizeof(downward_data_packet_header), sizeof(linkaddr_t));
             unicast_send(&conn->uc, &addr);
         }
     } else {

@@ -15,6 +15,7 @@
 /*---------------------------------------------------------------------------*/
 // https://github.com/contiki-os/contiki/wiki/Change-mac-or-radio-duty-cycling-protocols
 #undef NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE
+// default is 8
 #define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 8
 #undef NETSTACK_RDC
 // #define NETSTACK_RDC nullrdc_driver
