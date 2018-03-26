@@ -6,16 +6,16 @@
 #include "net/netstack.h"
 #include <stdio.h>
 #include "core/net/linkaddr.h"
-#include "source_routing.h"
+#include "my_collect.h"
 
-void connection_open(struct node_state* state, uint16_t channels,
-                    bool is_sink, const struct custom_conn_callbacks* callbacks)
+void my_collect_open(struct my_collect_conn* state, uint16_t channels,
+                    bool is_sink, const struct collect_callbacks* callbacks)
 {
     // initialize the node state structure
     linkaddr_copy(&state->parent, &linkaddr_null);  // no parent
     state->hop_count = 65535;  // max int: node not connected
     state->beacon_seqn = 0;
-    conn->callbacks = callbacks;
+    state->callbacks = callbacks;
 
     if (is_sink) {
         state->sink = 1;
@@ -28,10 +28,10 @@ void connection_open(struct node_state* state, uint16_t channels,
     unicast_open(&state->uc, channels + 1, &uc_cb);
 
     // in case this is the sink, start the beacon propagation process
-    if (state->is_sink) {
-        state->metric=0
+    if (state->sink) {
+        state->hop_count=0;
         // start a timer to send the beacon. Pass to the timer the state object
-        ctimer_set(&state->beacon_timer, CLOCK_SECOND, beacon_timer_cb, state)
+        ctimer_set(&state->beacon_timer, CLOCK_SECOND, beacon_timer_cb, state);
     }
 }
 
@@ -40,8 +40,8 @@ void connection_open(struct node_state* state, uint16_t channels,
 */
 
 void beacon_timer_cb(void* ptr) {
-    struct node_state* state = ptr;
-    send_beacon(state)
+    struct my_collect_conn* state = ptr;
+    send_beacon(state);
     // in case this is the sink, schedule next broadcast in random time
     if (state->sink) {
         ctimer_set(&state->beacon_timer, BEACON_INTERVAL, beacon_timer_cb, state);
@@ -52,7 +52,7 @@ void beacon_timer_cb(void* ptr) {
 ------------ SEND and RECEIVE functions ------------
 */
 
-void send_beacon(struct node_state* state) {
+void send_beacon(struct my_collect_conn* state) {
     // init beacon message
     struct beacon_msg beacon = {.seqn = state->beacon_seqn, .hop_count = state->hop_count};
 
@@ -66,9 +66,9 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     struct beacon_msg beacon;
     int8_t rssi;
 
-    // Get the pointer to the overall structure my_collect_conn from its field bc
-    struct node_state* state = (struct node_state*)(((uint8_t*)bc_conn) -
-                                    offsetof(struct node_state, bc));
+    // Get the pointer to the overall structure my_my_collect_conn from its field bc
+    struct my_collect_conn* state = (struct my_collect_conn*)(((uint8_t*)bc_conn) -
+                                    offsetof(struct my_collect_conn, bc));
 
     if (packetbuf_datalen() != sizeof(struct beacon_msg)) {
         printf("broadcast of wrong size\n");
@@ -79,7 +79,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     rssi = packetbuf_attr(PACKETBUF_ATTR_RSSI);
     printf("recv beacon from %02x:%02x seqn %u metric %u rssi %d\n",
         sender->u8[0], sender->u8[1],
-        beacon.seqn, beacon.metric, rssi);
+        beacon.seqn, beacon.hop_count, rssi);
 
     if (rssi < RSSI_REJECTION_TRESHOLD) {
         printf("packet reject due to low rssi");
@@ -95,7 +95,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
         if (state->hop_count < beacon.hop_count) {
             // current hop count is better
             printf("return. state->hop_count: %u, beacon.hop_count: %u\n",
-                state->metric, beacon.metric);
+                state->hop_count, beacon.hop_count);
             return;
       }
     }
@@ -110,7 +110,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     ctimer_set(&state->beacon_timer, BEACON_FORWARD_DELAY, beacon_timer_cb, state);
 }
 
-int send_data(struct node_state *state) {
+int my_collect_send(struct my_collect_conn *state) {
     // initialize header
     struct data_packet_header hdr = {.source=linkaddr_node_addr, .hops=0};
 
@@ -125,10 +125,10 @@ int send_data(struct node_state *state) {
     return unicast_send(&state->uc, &state->parent);
 }
 
-void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
-    // Get the pointer to the overall structure my_collect_conn from its field uc
-    struct node_state* state = (struct node_state*)(((uint8_t*)uc_conn) -
-                                    offsetof(struct node_state, uc));
+void uc_recv(struct unicast_conn *conn, const linkaddr_t *sender) {
+    // Get the pointer to the overall structure my_my_collect_conn from its field uc
+    struct my_collect_conn* state = (struct my_collect_conn*)(((uint8_t*)conn) -
+                                    offsetof(struct my_collect_conn, uc));
 
     struct data_packet_header hdr;
 
@@ -139,9 +139,9 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
 
     memcpy(&hdr, packetbuf_dataptr(), sizeof(struct data_packet_header));
      // if this is the sink
-     if (conn->sink){
+     if (state->sink){
          packetbuf_hdrreduce(sizeof(struct data_packet_header));
-         conn->callbacks->recv(&hdr.source, hdr.hops +1 );
+         state->callbacks->recv(&hdr.source, hdr.hops+1 );
      }else{
          // update struct
          hdr.hops = hdr.hops + 1;

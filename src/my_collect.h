@@ -12,14 +12,15 @@
 
 #define RSSI_REJECTION_TRESHOLD -95
 
+
 /* Connection object */
-struct node_state {
+struct my_collect_conn {
     // broadcast connection object
     struct broadcast_conn bc;
     // unicast connection object
     struct unicast_conn uc;
     // callback to ??
-    const struct my_collect_callbacks* callbacks;
+    const struct collect_callbacks* callbacks;
     // address of parent node
     linkaddr_t parent;
     // global timer
@@ -45,15 +46,18 @@ void beacon_timer_cb(void* ptr);
 
 // -------- UTIL FUNCTIONS --------
 
+void my_collect_open(struct my_collect_conn* state, uint16_t channels,
+                    bool is_sink, const struct collect_callbacks* callbacks);
+
 // sends a broadcast beacon using the current sequence number and hop count
-void send_beacon(struct node_state*);
+void send_beacon(struct my_collect_conn*);
 void bc_recv(struct broadcast_conn*, const linkaddr_t*);
-int send_data(struct node_state*);
+int my_collect_send(struct my_collect_conn*);
 void uc_recv(struct unicast_conn*, const linkaddr_t*);
 
 // -------- MESSAGE STRUCTURES --------
 
-struct beacon_message {
+struct beacon_msg {
     uint16_t seqn;
     uint16_t hop_count;
 } __attribute__((packed));
