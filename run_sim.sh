@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SIMULATION=$1
-NUM_SIMS=$2
-
 # aggregate_stat:
 #     Average results from multiple simulations
 #
@@ -44,13 +41,14 @@ aggregate_stat () {
 # Args:
 #     $1: Simulation dir path. Location of result log files
 #     $2: Number of runs of simulation
+#     $3: csc file name
 run_simulation () {
     echo "Root folder "$1
     for (( i=1; i<=$NUM_SIMS; i++ ))
     do
     	echo "Experiment "$i
     	mkdir -p $SIMULATION/$i
-    	cooja_nogui test_nogui_dc.csc > $SIMULATION/$i/cooja_output.log
+    	cooja_nogui $3 > $SIMULATION/$i/cooja_output.log
     	mv ./*.log $SIMULATION/$i
     	python parse-stats.py $SIMULATION/$i/test.log > $SIMULATION/$i/stat_res.log
     done
@@ -63,6 +61,7 @@ print_help () {
     echo "Commands"
     echo -e "\t-s|--simulation\tRun the simulation. Default 1 simulation"
     echo -e "\t-n|--number\tNumber of simulations to run"
+    echo -e "\t-c|--csc-file\tCooja csc config file. Default test_nogui_dc.csc"
     echo -e "\t-h|--help\tPrint this help and exit"
 
     exit 0
@@ -72,6 +71,7 @@ print_help () {
 RUN=0
 NUM_SIMS=1
 SIMULATION="default"
+CSC_FILE="test_nogui_dc.csc"
 
 # Parse CLI arguments
 POSITIONAL=()
@@ -98,6 +98,11 @@ case $key in
     RUN=1
     shift # past argument
     ;;
+    -c|--csc-file)
+    CSC_FILE=$2
+    shift # past argument
+    shift # past value
+    ;;
     *)    # unknown option
     POSITIONAL+=("$1") # save it in an array for later
     shift # past argument
@@ -106,14 +111,17 @@ esac
 done
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
-# echo SIMULATION     = "${SIMULATION}"
-# echo NUMBER OF RUNS = "${NUM_SIMS}"
-# echo RUN            = "${RUN}"
+echo Running with conf:
+echo SIMULATION     = "${SIMULATION}"
+echo NUMBER OF RUNS = "${NUM_SIMS}"
+echo RUN            = "${RUN}"
+echo CSC FILE       = "${CSC_FILE}"
+echo
 
 if [[ $RUN -eq "1" ]]; then
     echo "RUN the simulation"
     rm -rf $SIMULATION
-    run_simulation $SIMULATION $NUM_SIMS
+    run_simulation $SIMULATION $NUM_SIMS $CSC_FILE
 fi
 
 # Average simulations results
