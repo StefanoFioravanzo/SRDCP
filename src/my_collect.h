@@ -8,7 +8,7 @@
 #include "core/net/linkaddr.h"
 
 #define BEACON_INTERVAL (CLOCK_SECOND*60)
-#define BEACON_FORWARD_DELAY (random_rand() * CLOCK_SECOND)
+#define BEACON_FORWARD_DELAY (random_rand() * (CLOCK_SECOND* 4))
 
 #define RSSI_REJECTION_TRESHOLD -95
 

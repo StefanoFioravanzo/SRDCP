@@ -111,6 +111,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     // Retransmit the beacon since the metric has been updated.
     // Introduce small random delay with the BEACON_FORWARD_DELAY to avoid synch
     // issues when multiple nodes broadcast at the same time.
+    printf("Schedule retransmission");
     ctimer_set(&state->beacon_timer, BEACON_FORWARD_DELAY, beacon_timer_cb, state);
 }
 
