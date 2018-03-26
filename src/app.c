@@ -6,8 +6,8 @@
 #include "leds.h"
 #include <stdio.h>
 #include "core/net/linkaddr.h"
-#include "my_collect.h"
 #include "stdbool.h"
+#include "my_collect.h"
 /*---------------------------------------------------------------------------*/
 #define MSG_PERIOD (30 * CLOCK_SECOND)  // send every 30 seconds
 #define COLLECT_CHANNEL 0xAA
@@ -27,7 +27,7 @@ test_msg_t;
 /*---------------------------------------------------------------------------*/
 static struct my_collect_conn tc;
 static void recv_cb(const linkaddr_t *originator, uint8_t hops);
-struct collect_callbacks cb = {.recv = recv_cb};
+struct my_collect_callbacks cb = {.recv = recv_cb};
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data)
 {

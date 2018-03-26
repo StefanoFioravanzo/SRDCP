@@ -20,7 +20,7 @@ struct my_collect_conn {
     // unicast connection object
     struct unicast_conn uc;
     // callback to ??
-    const struct collect_callbacks* callbacks;
+    const struct my_collect_callbacks* callbacks;
     // address of parent node
     linkaddr_t parent;
     // global timer
@@ -37,22 +37,24 @@ struct my_collect_conn {
 void bc_recv(struct broadcast_conn *conn, const linkaddr_t *sender);
 void uc_recv(struct unicast_conn *c, const linkaddr_t *from);
 
-// Callbacks structure to initialize the communication channels
-struct broadcast_callbacks bc_cb = {.recv=bc_recv};
-struct unicast_callbacks uc_cb = {.recv=uc_recv};
+
 
 // timers Callbacks
 void beacon_timer_cb(void* ptr);
 
 // -------- UTIL FUNCTIONS --------
 
+struct my_collect_callbacks {
+    void (* recv)(const linkaddr_t *originator, uint8_t hops);
+};
+
 void my_collect_open(struct my_collect_conn* state, uint16_t channels,
-                    bool is_sink, const struct collect_callbacks* callbacks);
+                    bool is_sink, const struct my_collect_callbacks* callbacks);
 
 // sends a broadcast beacon using the current sequence number and hop count
 void send_beacon(struct my_collect_conn*);
 void bc_recv(struct broadcast_conn*, const linkaddr_t*);
-int my_collect_send(struct my_collect_conn*);
+int my_collect_send(struct my_collect_conn *state);
 void uc_recv(struct unicast_conn*, const linkaddr_t*);
 
 // -------- MESSAGE STRUCTURES --------

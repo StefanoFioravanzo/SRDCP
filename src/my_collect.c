@@ -8,8 +8,12 @@
 #include "core/net/linkaddr.h"
 #include "my_collect.h"
 
+// Callbacks structure to initialize the communication channels
+struct broadcast_callbacks bc_cb = {.recv=bc_recv};
+struct unicast_callbacks uc_cb = {.recv=uc_recv};
+
 void my_collect_open(struct my_collect_conn* state, uint16_t channels,
-                    bool is_sink, const struct collect_callbacks* callbacks)
+                    bool is_sink, const struct my_collect_callbacks* callbacks)
 {
     // initialize the node state structure
     linkaddr_copy(&state->parent, &linkaddr_null);  // no parent
