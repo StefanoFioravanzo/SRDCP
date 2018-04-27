@@ -106,7 +106,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
         // new tree
         conn->beacon_seqn = beacon.seqn;
     }else{
-        if (conn->metric < beacon.metric) {
+        if (conn->metric <= beacon.metric) {
             // current hop count is better
             printf("my_collect: return. conn->metric: %u, beacon.metric: %u\n",
                 conn->metric, beacon.metric);
