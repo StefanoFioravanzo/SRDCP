@@ -1,0 +1,11 @@
+# remove compiled files from tracking
+src/contiki-sky.*
+src/app.sky
+src/obj_sky
+
+results/*
+
+symbols.*
+
+*.log
+*.testlog

@@ -1,0 +1,7 @@
+version: '3.2'
+services:
+    contiki:
+        build: .
+        name: contiki
+        volumes:
+            - .:/home/code/
