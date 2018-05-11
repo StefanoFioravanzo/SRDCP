@@ -29,9 +29,9 @@
 static const linkaddr_t sink_addr = {{0x01, 0x00}}; // node 1 will be our sink
 
 enum packet_type {
-    upward_data_packet = 0,
-    downward_data_packet = 1,
-    topology_report = 2
+        upward_data_packet = 0,
+        downward_data_packet = 1,
+        topology_report = 2
 };
 
 // --------------------------------------------------------------------
@@ -39,48 +39,48 @@ enum packet_type {
 // --------------------------------------------------------------------
 
 typedef struct DictEntry {
-    linkaddr_t key;  // the address of the node
-    linkaddr_t value;  // the address of the parent
+        linkaddr_t key; // the address of the node
+        linkaddr_t value; // the address of the parent
 } DictEntry;
 
 typedef struct TreeDict {
-    int len;
-    // int cap;
-    DictEntry entries[MAX_NODES];
-    linkaddr_t tree_path[MAX_PATH_LENGTH];
+        int len;
+        // int cap;
+        DictEntry entries[MAX_NODES];
+        linkaddr_t tree_path[MAX_PATH_LENGTH];
 } TreeDict;
 
 // --------------------------------------------------------------------
 
 /* Connection object */
 struct my_collect_conn {
-    // broadcast connection object
-    struct broadcast_conn bc;
-    // unicast connection object
-    struct unicast_conn uc;
-    const struct my_collect_callbacks* callbacks;
-    // address of parent node
-    linkaddr_t parent;
-    struct ctimer beacon_timer;
-    // metric: hop count
-    uint16_t metric;
-    // sequence number of the tree protocol
-    uint16_t beacon_seqn;
-    // true if this node is the sink
-    uint8_t is_sink;  // 1: is_sink, 0: not_sink
-    // tree table (used only in the sink)
-    TreeDict routing_table;
+        // broadcast connection object
+        struct broadcast_conn bc;
+        // unicast connection object
+        struct unicast_conn uc;
+        const struct my_collect_callbacks* callbacks;
+        // address of parent node
+        linkaddr_t parent;
+        struct ctimer beacon_timer;
+        // metric: hop count
+        uint16_t metric;
+        // sequence number of the tree protocol
+        uint16_t beacon_seqn;
+        // true if this node is the sink
+        uint8_t is_sink; // 1: is_sink, 0: not_sink
+        // tree table (used only in the sink)
+        TreeDict routing_table;
 
-    // 1: Wait to send topology report (may be able to append to incoming t-report)
-    // 0: Send topology report right away
-    uint8_t treport_hold;
-    struct ctimer treport_hold_timer;
+        // 1: Wait to send topology report (may be able to append to incoming t-report)
+        // 0: Send topology report right away
+        uint8_t treport_hold;
+        struct ctimer treport_hold_timer;
 };
 typedef struct my_collect_conn my_collect_conn;
 
 struct my_collect_callbacks {
-    void (* recv)(const linkaddr_t *originator, uint8_t hops);
-    void (* sr_recv)(struct my_collect_conn *ptr, uint8_t hops);
+        void (* recv)(const linkaddr_t *originator, uint8_t hops);
+        void (* sr_recv)(struct my_collect_conn *ptr, uint8_t hops);
 };
 
 /* Initialize a collect connection
@@ -101,12 +101,12 @@ void forward_upward_data(my_collect_conn *conn, const linkaddr_t *sender);
 void forward_downward_data(my_collect_conn*, const linkaddr_t*);
 
 /*
- Source routing send function:
- Params:
+   Source routing send function:
+   Params:
     c: pointer to the collection connection structure
     dest: pointer to the destination address
- Returns non-zero if the packet could be sent, zero otherwise.
-*/
+   Returns non-zero if the packet could be sent, zero otherwise.
+ */
 int sr_send(struct my_collect_conn*, const linkaddr_t*);
 
 void beacon_timer_cb(void* ptr);
@@ -114,28 +114,28 @@ void beacon_timer_cb(void* ptr);
 // -------- MESSAGE STRUCTURES --------
 
 struct tree_connection {
-    linkaddr_t node;
-    linkaddr_t parent;
+        linkaddr_t node;
+        linkaddr_t parent;
 } __attribute__((packed));
 typedef struct tree_connection tree_connection;
 
 // Beacon message structure
 struct beacon_msg {
-    uint16_t seqn;
-    uint16_t metric;
+        uint16_t seqn;
+        uint16_t metric;
 } __attribute__((packed));
 typedef struct beacon_msg beacon_msg;
 
 struct upward_data_packet_header { // Header structure for data packets
-    linkaddr_t source;
-    uint8_t hops;
-    uint8_t piggy_len;  // 0 in case there is no piggybacking
+        linkaddr_t source;
+        uint8_t hops;
+        uint8_t piggy_len; // 0 in case there is no piggybacking
 } __attribute__((packed));
 typedef struct upward_data_packet_header upward_data_packet_header;
 
 struct downward_data_packet_header {
-    uint8_t hops;
-    uint8_t path_len;
+        uint8_t hops;
+        uint8_t path_len;
 } __attribute__((packed));
 typedef struct downward_data_packet_header downward_data_packet_header;
 
