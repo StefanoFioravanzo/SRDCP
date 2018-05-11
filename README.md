@@ -2,7 +2,7 @@
 
 This project was developed as a final assignment of the LaboratoryOfWirelessSensorNetworks course @UniversityOfTrento during my master degree in Computer Science. 
 
-The assignment required to implement a simple routing protocol for low power wireless devices using the Contiki open source project. [Contiki] (http://www.contiki-os.org/) is an open source OS for Internet Of Things devices or, more generally, it enables building complex wireless systems for tiny low-cost, low-power microcontrollers.
+The assignment required to implement a simple routing protocol for low power wireless devices using the Contiki open source project. [Contiki](http://www.contiki-os.org/) is an open source OS for Internet Of Things devices or, more generally, it enables building complex wireless systems for tiny low-cost, low-power microcontrollers.
 
 We assume to have many nodes which serve as sensors or actuators and need to report some information to a central node, the Sink. Likewise, the Sink needs to be able to send messages to any node present in the network. To do this, the protocol need to build some kind of topology connecting the nodes in an optimal way, taking into considerations (messages) collision and topology changes (nodes leaving and entering the network) scenarios.
 
@@ -12,9 +12,9 @@ So, the routing protocol should be able of supporting two types of traffic patte
 - *one-to-many* traffic (Source routing): The Sink should be able to send packets to any node in the network
 
 
-To understand the details of the implemented protocol, refer to the [Protocol.md] (https://github.com/StefanoFioravanzo/SRDDT/blob/doc/Protocol.md) guide.
+To understand the details of the implemented protocol, refer to the [Protocol.md](doc/Protocol.md) guide.
 
-For a detailed description of the source code and main functions, refer to the [Implementation.md] (https://github.com/StefanoFioravanzo/SRDDT/blob/doc/Implementation.md) guide.
+For a detailed description of the source code and main functions, refer to the [Implementation.md](doc/Implementation.md) guide.
 
 The Cooja Network Simulator is part of the Contiki project and was built to run simulations of network software developed with Contiki. Cooja allows to simulate both large-scale networks or fully emulated hardware devices in extreme detail.
 

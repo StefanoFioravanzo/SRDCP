@@ -62,11 +62,11 @@ Once the sink has determined a viable path, it has to include all the involved n
 
 **Scheduling**
 
-With all these messages wandering around it's easy to experience collisions and loose many packets. Timing is of utmost importance, the scheduling of the topology report messages with respect to the broadcast beacons sent by the sink has to be chosen carefully in order to reduce collisions as much as possible. Refer to section *Message Scheduling* of the [Implementation Guide] (https://github.com/StefanoFioravanzo/SRDDT/blob/doc/Implementation.md) for mode details on how this issue is addressed.
+With all these messages wandering around it's easy to experience collisions and loose many packets. Timing is of utmost importance, the scheduling of the topology report messages with respect to the broadcast beacons sent by the sink has to be chosen carefully in order to reduce collisions as much as possible. Refer to section *Message Scheduling* of the [Implementation Guide](Implementation.md) for mode details on how this issue is addressed.
 
 **Avoiding useless messages**
 
 The sending rate of topology report messages must be chosen carefully as well. If the rate is too high, the might be too many packets in the air that would result in frequent packets collisions. To avoid this issue, one node could wait some time before sending a topology report (after a topology change - e.g. a parent change after a beacon broadcast). If the node receives a child's topology report or a data collection message, it can either concatenate its topology information in the incoming topology report message, or extend the header of the data collection message and piggyback its topology information.
 
-In this way one less packet would be sent, decreasing the probability of collisions. Refer to section *Collision Avoidance Strategies* of the [Implementation Guide] (https://github.com/StefanoFioravanzo/SRDDT/blob/doc/Implementation.md) for mode details on how this issue is addressed.
+In this way one less packet would be sent, decreasing the probability of collisions. Refer to section *Collision Avoidance Strategies* of the [Implementation Guide](Implementation.md) for mode details on how this issue is addressed.
 
