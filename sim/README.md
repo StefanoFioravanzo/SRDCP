@@ -1,3 +1,9 @@
+## Running Simulations
+
+Cooja is the Contiki network simulator. Cooja allows large and small networks of Contiki motes to be simulated. Motes can be emulated at the hardware level, which is slower but allows precise inspection of the system behavior, or at a less detailed level, which is faster and allows simulation of larger networks.
+
+Every simulation 
+
 - Explain how the folder is organized
 - How cooja work (how the csc files work)
 - How to run tests

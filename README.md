@@ -30,7 +30,7 @@ To build and start the docker container, just run:
 
 ```
 docker-compose build
-docker-compose up
+docker-compose run contiki
 ```
 
 The compose file will replace the image `/code` folder with a volume pointing to the host's project directory, so any change to the source code will be reflected to the running container as well.
