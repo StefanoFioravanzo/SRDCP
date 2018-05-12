@@ -1,17 +1,5 @@
 #!/bin/bash
-# Copyright 2018 Stefano Fioravanzo
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# @author: Stefano fioravanzo
 
 # aggregate_stat:
 #     Average results from multiple simulations
@@ -51,15 +39,17 @@ run_simulation () {
     	cooja_nogui $3 > $SIMULATION/$i/cooja_output.log
     	mv ./*.log $SIMULATION/$i
     	python parse-stats.py $SIMULATION/$i/test.log > $SIMULATION/$i/stat_res.log
+        mv ./*.csv $SIMULATION/$i
     done
 }
 
 print_help () {
-    echo "Wireless Sensor Netowrk Project"
+    echo "Wireless Sensors Netowrks Project"
     echo "-- Stefano Fioravanzo"
     echo
     echo "Commands"
-    echo -e "\t-s|--simulation\tRun the simulation. Default 1 simulation"
+    echo -e "\t-r|--run-simulation\tRun simulation flag. If not set just run results aggregation"
+    echo -e "\t-s|--simulation\tName of the simulation"
     echo -e "\t-n|--number\tNumber of simulations to run"
     echo -e "\t-c|--csc-file\tCooja csc config file. Default test_nogui_dc.csc"
     echo -e "\t-h|--help\tPrint this help and exit"

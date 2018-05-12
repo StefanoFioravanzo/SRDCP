@@ -1,6 +1,4 @@
-#!/usr/bin/env python2.7
-
-from __future__ import division
+#!/usr/bin/env python3
 
 import re
 import sys
@@ -32,7 +30,7 @@ def parse_file(log_file):
 	dsent = {}
 	dsrrecv = {}
 	dsrsent = {}
-	
+
 	# Parse log file and add data to CSV files
 	with open(log_file, 'r') as f:
 		for line in f:
@@ -48,12 +46,12 @@ def parse_file(log_file):
 					nodes.append(node_id)
 				else:
 					num_resets += 1
-					print "WARNING: node {} reset during the simulation.".format(node_id)
+					print("WARNING: node {} reset during the simulation.".format(node_id))
 
 				# Continue with the following line
 				continue
 
-			# RECV 
+			# RECV
 			m = regex_recv.match(line)
 			if m:
 				# Get dictionary with data
@@ -128,34 +126,34 @@ def parse_file(log_file):
 	tsrrecv = 0
 
 	if num_resets > 0:
-		print "----- WARNING -----"
-		print "{} nodes reset during the simulation".format(num_resets)
-		print "" # To separate clearly from the following set of prints
+		print("----- WARNING -----")
+		print("{} nodes reset during the simulation".format(num_resets))
+		print("") # To separate clearly from the following set of prints
 
 	# Nodes that did not manage to send data
 	fails = []
 	for node_id in sorted(nodes):
 		if node_id == sink_id:
 			continue
-		if node_id not in dsent.keys():
+		if node_id not in list(dsent.keys()):
 			fails.append(node_id)
 	if fails:
-		print "----- Data Collection WARNING -----"
+		print("----- Data Collection WARNING -----")
 		for node_id in fails:
-			print "Warning: node {} did not send any data.".format(node_id)
-		print "" # To separate clearly from the following set of prints
+			print("Warning: node {} did not send any data.".format(node_id))
+		print("") # To separate clearly from the following set of prints
 
 	# Print node stats
-	print "----- Data Collection Node Statistics -----"
+	print("----- Data Collection Node Statistics -----")
 	for node in sorted(dsent.keys()):
 		nsent = len(dsent[node])
 		nrecv = 0
-		if node in drecv.keys():
+		if node in list(drecv.keys()):
 			nrecv = len(drecv[node])
 
 		pdr = 100 * nrecv / nsent
-		print "Node {}: TX Packets = {}, RX Packets = {}, PDR = {:.2f}%, PLR = {:.2f}%".format(
-			node, nsent, nrecv, pdr, 100 - pdr)
+		print("Node {}: TX Packets = {}, RX Packets = {}, PDR = {:.2f}%, PLR = {:.2f}%".format(
+			node, nsent, nrecv, pdr, 100 - pdr))
 
 		# Update overall packets sent / received
 		tsent += nsent
@@ -163,24 +161,24 @@ def parse_file(log_file):
 
 	# Print overall stats
 	if tsent > 0:
-		print "\n----- Data Collection Overall Statistics -----"
-		print "Total Number of Packets Sent: {}".format(tsent)
-		print "Total Number of Packets Received: {}".format(trecv)
+		print("\n----- Data Collection Overall Statistics -----")
+		print("Total Number of Packets Sent: {}".format(tsent))
+		print("Total Number of Packets Received: {}".format(trecv))
 		opdr = 100 * trecv / tsent
-		print "Overall PDR = {:.2f}%".format(opdr)
-		print "Overall PLR = {:.2f}%".format(100 - opdr)
+		print("Overall PDR = {:.2f}%".format(opdr))
+		print("Overall PLR = {:.2f}%".format(100 - opdr))
 
 	# Print node stats
-	print "\n----- Source Routing Node Statistics -----"
+	print("\n----- Source Routing Node Statistics -----")
 	for node in sorted(dsrsent.keys()):
 		nsent = len(dsrsent[node])
 		nrecv = 0
-		if node in dsrrecv.keys():
+		if node in list(dsrrecv.keys()):
 			nrecv = len(dsrrecv[node])
 
 		pdr = 100 * nrecv / nsent
-		print "Node {}: TX Packets = {}, RX Packets = {}, PDR = {:.2f}%, PLR = {:.2f}%".format(
-			node, nsent, nrecv, pdr, 100 - pdr)
+		print("Node {}: TX Packets = {}, RX Packets = {}, PDR = {:.2f}%, PLR = {:.2f}%".format(
+			node, nsent, nrecv, pdr, 100 - pdr))
 
 		# Update overall packets sent / received
 		tsrsent += nsent
@@ -188,12 +186,12 @@ def parse_file(log_file):
 
 	# Print overall stats
 	if tsrsent > 0:
-		print "\n----- Source Routing Overall Statistics -----"
-		print "Total Number of Packets Sent: {}".format(tsrsent)
-		print "Total Number of Packets Received: {}".format(tsrrecv)
+		print("\n----- Source Routing Overall Statistics -----")
+		print("Total Number of Packets Sent: {}".format(tsrsent))
+		print("Total Number of Packets Received: {}".format(tsrrecv))
 		opdr = 100 * tsrrecv / tsrsent
-		print "Overall PDR = {:.2f}%".format(opdr)
-		print "Overall PLR = {:.2f}%".format(100 - opdr)
+		print("Overall PDR = {:.2f}%".format(opdr))
+		print("Overall PLR = {:.2f}%".format(100 - opdr))
 
 
 if __name__ == '__main__':
@@ -201,8 +199,8 @@ if __name__ == '__main__':
 	# Get the log file to parse and check that it exists
 	log_file = sys.argv[1]
 	if not os.path.isfile(log_file) or not os.path.exists(log_file):
-		print "Error: No such file."
+		print("Error: No such file.")
 		sys.exit(1)
-	
+
 	# Parse log file, create CSV files, and print some stats
 	parse_file(log_file)
