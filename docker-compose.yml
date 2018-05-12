@@ -2,6 +2,8 @@ version: '3.2'
 services:
     contiki:
         build: .
-        name: contiki
+        image: contiki
+        container_name: contiki
         volumes:
-            - .:/home/code/
+            - .:/code/
+        command: /bin/bash
