@@ -15,5 +15,5 @@ PROJECT_SOURCEFILES += my_collect.c routing_table.c topology_report.c
 all: $(CONTIKI_PROJECT)
 
 CONTIKI_WITH_RIME = 1
-CONTIKI ?= ../../contiki
+CONTIKI ?= /contiki
 include $(CONTIKI)/Makefile.include
