@@ -1,25 +1,29 @@
 #!/bin/bash
 # @author: Stefano fioravanzo
 
+PROJECT_PATH="/code/"
+SIM_FOLDER="${PROJECT_PATH}sim/"
+
 # aggregate_stat:
 #     Average results from multiple simulations
 #
 # Args:
 #     $1: DataCollection / SourceRouting averaging
 #     $2: Number of runs of simulation
+#     $3: Prefix string
 aggregate_stat () {
-    echo -n ${2} >> ${SIMULATION}/sim_average.log
+    echo -n ${3} >> ${SIM_FOLDER}${SIMULATION}/sim_average.log
 
-    for (( sim=1; sim<=$NUM_SIMS; sim++ ))
+    for (( sim=1; sim<=${2}; sim++ ))
     do
-        grep "Overall PDR" ${SIMULATION}/${sim}/stat_res.log | \
+        grep "Overall PDR" ${SIM_FOLDER}${SIMULATION}/${sim}/stat_res.log | \
         sed -n ${1}p | \
         egrep -o "[0-9]+\.[0-9]+"
     done | \
     paste -sd+ - | \
-    awk -v N=$NUM_SIMS '{print "("$1")/"N}' | \
+    awk -v N=${2} '{print "("$1")/"N}' | \
     bc | \
-    awk '{print " "$1"%"}' >> ${SIMULATION}/sim_average.log
+    awk '{print " "$1"%"}' >> ${SIM_FOLDER}${SIMULATION}/sim_average.log
 
 }
 
@@ -31,16 +35,31 @@ aggregate_stat () {
 #     $2: Number of runs of simulation
 #     $3: csc file name
 run_simulation () {
-    echo "Root folder "$1
-    for (( i=1; i<=$NUM_SIMS; i++ ))
+    echo "Root folder "${1}
+    for (( i=1; i<=${2}; i++ ))
     do
-    	echo "Experiment "$i
-    	mkdir -p $SIMULATION/$i
-    	cooja_nogui $3 > $SIMULATION/$i/cooja_output.log
-    	mv ./*.log $SIMULATION/$i
-    	python parse-stats.py $SIMULATION/$i/test.log > $SIMULATION/$i/stat_res.log
-        mv ./*.csv $SIMULATION/$i
+    	echo "Experiment "${i}
+    	mkdir -p ${SIM_FOLDER}${1}/${i}
+    	cooja_nogui ${SIM_FOLDER}$3 | tee ${SIM_FOLDER}${1}/${i}/cooja_output.log
+    	mv ./*.log ${SIM_FOLDER}${1}/${i}
+        mv ./*.testlog ${SIM_FOLDER}${1}/${i}
+    	python3 ${SIM_FOLDER}parse-stats.py ${SIM_FOLDER}${1}/${i}/test.log > ${SIM_FOLDER}${1}/${i}/stat_res.log
+        mv ${SIM_FOLDER}recv.csv ${SIM_FOLDER}${1}/${i}
+        mv ${SIM_FOLDER}sent.csv ${SIM_FOLDER}${1}/${i}
     done
+}
+
+# prepare_env:
+#    Copy the firmware (app.sky) to an appropriate location to run the cooja simulation
+prepare_env () {
+    mkdir -p ${SIM_FOLDER}src
+    cp ${PROJECT_PATH}src/app.sky ${SIM_FOLDER}src/app.sky
+}
+
+# destroy_env:
+#     Clean the project compile files and remove firmware from sim folder
+destroy_env () {
+    rm -rf ${SIM_FOLDER}src
 }
 
 print_help () {
@@ -108,17 +127,28 @@ echo RUN            = "${RUN}"
 echo CSC FILE       = "${CSC_FILE}"
 echo
 
+# copy the app.sky to sim/src/folder
+prepare_env
+
 if [[ $RUN -eq "1" ]]; then
     echo "RUN the simulation"
-    rm -rf $SIMULATION
+    rm -rf ${SIM_FOLDER}${SIMULATION}
     run_simulation $SIMULATION $NUM_SIMS $CSC_FILE
 fi
 
 # Average simulations results
-rm ${SIMULATION}/sim_average.log
-echo "Simulation ${SIMULATION} summary:" >> ${SIMULATION}/sim_average.log
-aggregate_stat 1 "Data Collection PDR: "
-aggregate_stat 2 "Source Routing PDR: "
+rm ${SIM_FOLDER}${SIMULATION}/sim_average.log
+echo "Simulation ${SIM_FOLDER}${SIMULATION} summary:" >> ${SIM_FOLDER}${SIMULATION}/sim_average.log
+aggregate_stat 1 ${NUM_SIMS} "Data Collection PDR: "
+aggregate_stat 2 ${NUM_SIMS} "Source Routing PDR: "
+
+# Copy the test csc cooja file into the simulation folder for reproducibility
+cp ${SIM_FOLDER}${CSC_FILE} ${SIM_FOLDER}${SIMULATION}/${CSC_FILE}
 
 # Show summary
-cat ${SIMULATION}/sim_average.log
+cat ${SIM_FOLDER}${SIMULATION}/sim_average.log
+
+# TODO: move $SIMULATION folder to results/
+
+# clean up
+destroy_env
