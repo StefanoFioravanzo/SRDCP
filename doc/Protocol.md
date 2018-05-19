@@ -31,7 +31,7 @@ The data collection protocol simply requires every node to be able to send some 
 
 Once the sink received the packet, it can read the original sender form the packet header and send the data to the application layer.
 
-#### Issues
+#### Issues TODOoooooo
 
 - Loss of packets (time synch)
 - Possible loop formation: explain why and also a possible solution

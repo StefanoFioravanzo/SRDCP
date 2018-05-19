@@ -37,4 +37,4 @@ The compose file will replace the image `/code` folder with a volume pointing to
 
 ##### Running Cooja GUI
 
-TODO
+**TODO**

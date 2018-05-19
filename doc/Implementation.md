@@ -11,7 +11,7 @@ It also provides two callback functions to process the received data from the tw
 
 #### `project-conf.h`
 
-Contiki's configuration header. Here are defined the parameters of the contiki's network stack alongside other parameter of Contiki OS.
+Contiki's configuration header. Here are defined the parameters of the contiki's network stack alongside other parameter of Contiki OS, like the channel used for communications, several hardware functionalities, the routing protocol and its parameters, etc...
 
 **TOOD: List parameters and their configuration.**
 
@@ -71,15 +71,53 @@ Knowing the message scheduling of the application layer (assumed to be fixed), t
 
 - `BEACON_INTERVAL`: How often the Sink initiated the broadcast of a beacon message to create the spanning connection tree
 - `BEACON_FORWARD_DELAY`: A random range of time a node can wait to forward a beacon message
-- `TOPOLOGY_REPORT_HOLD_TIME`: How much time a nodes waits (to piggybacK topology information) before sending a dedicated topology report
+- `TOPOLOGY_REPORT_HOLD_TIME`: How much time a nodes waits (to piggyback topology information) before sending a dedicated topology report
 
-We know from the application layer that data collection packets are sent every ???, so the beacon interval can be set such that the beacons do not collide with the data collection packets.
+We know from the application layer that data collection packets are sent every 30 seconds (after a warp up time of 75 seconds), so the beacon interval can be set such that the beacons do not collide with the data collection packets. 
 
-TODO: Say something also about the timing of source routing.
+The application layers sends source routing packet every 10 seconds, so little cam be done to avoid collisions with them.
 
-The results produced with many different timing can be found in the `results/` folder of the project.
+To desynchronize the data collection packets we can analyze the timings from time 0 of the protocol. Here is an example assuming a beacon interval time of 30 seconds:
 
-#### MAC LAYER
+| Protocol Time | AppLayer - DataColl | Beacon Send |
+| :-: |:-:| :-:|
+| 0s   | - | - |
+| 30s  | - | Send |
+| 60s  | - | Send |
+| 75s  | Send | - |
+| 90s  | - | Send |
+| 105s  | Send | - |
+| 120s  | - | Send |
+| 135s  | Send | - |
+| 150s  | - | Send |
+| 165s  | Send | - |
+| 180s  | - | Send |
+| 195s  | Send | - |
+| 210s  | - | Send |
 
-- nullrdc (100% PDR in both using simple impl - just piggyback)
-- contikimac: say that I tried to look into the parameters of this protocol. Give reference.
+With these timing the overlapping is limited to the propagation time of the packets and we can hope for good minimal packet loss due to collisions. Several simulations we run with different configurations of these parameters, all the results can be found in the [Simulation](../sim) section of the repository.
+
+#### Duty Cycling Protocols
+
+Power consumption is important for wireless sensor nodes to achieve a long network lifetime. To achieve this, low-power radio hardware is not enough, the solution is to switch off the radio transceiver as much as possible while allowing the node to receive enough messages and not hamper the higher protocol.
+
+Radio duty cycling protocols are often called MAC protocols because radio duty cycling is often implemented at the MAC layer. In Contiki, duty cycling was factored out from the MAC layer and moved into its own layer, called the RDC layer.
+
+Contiki has three duty cycling mechanisms: ContikiMAC, X-MAC and LPP. ContikiMAC is a protocol based on the principles behind low-power listening but with better power efficiency. Contiki's X-MAC is based on the original X-MAC protocol, but has been enhanced to reduce power consumption and maintain good network conditions. Contiki's LPP is based on the Low-Power Probing (LPP) protocol but with enhancements that improve power consumption as well as provide mechanisms for sending broadcast data.
+
+The channel check rate of the RDC driver is given in Hz, specifying the number of channel checks per second. The default channel check rate is 8 Hz and custom check rates are typically given in powers of two.
+
+The configuration of these parameters are placed inside the `project-conf.h` configuration file. To specify the RDC driver and the channel check rate is as simple as:
+
+```c
+#define NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE 16  // 16 Hz
+#define NETSTACK_CONF_RDC nullrdc_driver  // NullRDC driver
+```
+
+NullRDC is a "null" RDC layer that never switches the radio off and that therefore can be used for testing or for comparison with the other RDC drivers. To specify the ContikiMAC RDC driver just switch `nullrdc_driver` with `contikimac_driver`.
+
+For an analysis of the performance of the protocol under variations of these parameters refer to the [Simulation](../sim) section of the repository.
+
+---
+
+For a complete reference of Contiki's implementation details, check out the official Contiki OS documentation at [github.com/contiki-os/contiki/wiki](github.com/contiki-os/contiki/wiki).
