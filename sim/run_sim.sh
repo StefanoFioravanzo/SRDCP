@@ -3,6 +3,7 @@
 
 PROJECT_PATH="/code/"
 SIM_FOLDER="${PROJECT_PATH}sim/"
+RESULTS_FOLDER="${PROJECT_PATH}results/"
 
 # aggregate_stat:
 #     Average results from multiple simulations
@@ -54,11 +55,14 @@ run_simulation () {
 prepare_env () {
     mkdir -p ${SIM_FOLDER}src
     cp ${PROJECT_PATH}src/app.sky ${SIM_FOLDER}src/app.sky
+    # copy the csc file to appropriate location
+    cp ${SIM_FOLDER}cooja/${CSC_FILE} ${SIM_FOLDER}
 }
 
 # destroy_env:
 #     Clean the project compile files and remove firmware from sim folder
 destroy_env () {
+    rm ${SIM_FOLDER}${CSC_FILE}
     rm -rf ${SIM_FOLDER}src
 }
 
@@ -66,12 +70,12 @@ print_help () {
     echo "Wireless Sensors Netowrks Project"
     echo "-- Stefano Fioravanzo"
     echo
-    echo "Commands"
+    echo "Commands:"
     echo -e "\t-r|--run-simulation\tRun simulation flag. If not set just run results aggregation"
-    echo -e "\t-s|--simulation\tName of the simulation"
-    echo -e "\t-n|--number\tNumber of simulations to run"
-    echo -e "\t-c|--csc-file\tCooja csc config file. Default test_nogui_dc.csc"
-    echo -e "\t-h|--help\tPrint this help and exit"
+    echo -e "\t-s|--simulation\t\tName of the simulation"
+    echo -e "\t-n|--number\t\tNumber of simulations to run"
+    echo -e "\t-c|--csc-file\t\tCooja csc config file. Default test_nogui_dc.csc"
+    echo -e "\t-h|--help\t\tPrint this help and exit"
 
     exit 0
 }
@@ -148,7 +152,9 @@ cp ${SIM_FOLDER}${CSC_FILE} ${SIM_FOLDER}${SIMULATION}/${CSC_FILE}
 # Show summary
 cat ${SIM_FOLDER}${SIMULATION}/sim_average.log
 
-# TODO: move $SIMULATION folder to results/
+# move $SIMULATION folder to results/
+mkdir -p ${RESULTS_FOLDER}
+mv ${SIM_FOLDER}${SIMULATION}/ ${RESULTS_FOLDER}
 
 # clean up
 destroy_env
