@@ -105,18 +105,3 @@
 		NETSTACK\_RDC contikimac\_driver  
 		NETSTACK\_CONF\_RDC\_CHANNEL\_CHECK\_RATE 32  
 		
-- **08-contikimac-tr-cr-32-1**:
-
-	- `my_collect.h`:
-
-		TOPOLOGY\_REPORT 1  
-		PIGGYBACKING 0  
-		BEACON\_INTERVAL (`CLOCK_SECOND*30`)  
-		BEACON\_FORWARD\_DELAY (`random_rand() % (CLOCK_SECOND*4)`)  
-		TOPOLOGY\_REPORT\_HOLD\_TIME (`CLOCK_SECOND*15`)  
-
-	- `project-conf.h`:
-
-		NETSTACK\_RDC contikimac\_driver  
-		NETSTACK\_CONF\_RDC\_CHANNEL\_CHECK\_RATE 32  
-		
