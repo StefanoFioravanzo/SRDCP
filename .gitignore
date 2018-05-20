@@ -3,8 +3,6 @@ src/contiki-sky.*
 src/app.sky
 src/obj_sky
 
-results/*
-
 symbols.*
 
 *.log
