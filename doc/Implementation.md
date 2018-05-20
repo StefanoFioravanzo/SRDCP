@@ -42,7 +42,6 @@ This file handles all the send and receive functions.
 This file handles all the logic related to sending and receiving topology reports.
 
 - `topology_report_hold_cb()`: Timer call back to handle the send event of a topology report. When a node needs to send a topology report, it waits for a defined time.(`TOPOLOGY_REPORT_HOLD_TIME` defined in `my_collect.h`) waiting to piggyback the information. If during that time no application packet is sent, so no piggybacking can be performed, then the nodes send a dedicated topology report.
-- `check_topology_report_address()`:  ...
 - `send_topology_report()`: Sends a dedicated topology report to the sink. This function also implements a forward functionality in the case a topology report comes from a children of the network tree and the current node is waiting to send a topology report itself (`treport=1`). In that case the node expands the header of the packet to include its own information.
 - `deliver_topology_report_to_sink()`: Function called by the sink when it receives a topology report. The node reads the topology information and updated the routing table. This function is called by the `uc_recv()` unicast callback in `my_collect.c`.
 
