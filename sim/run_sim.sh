@@ -153,8 +153,8 @@ cp ${SIM_FOLDER}${CSC_FILE} ${SIM_FOLDER}${SIMULATION}/${CSC_FILE}
 cat ${SIM_FOLDER}${SIMULATION}/sim_average.log
 
 # move $SIMULATION folder to results/
-mkdir -p ${RESULTS_FOLDER}
-mv ${SIM_FOLDER}${SIMULATION}/ ${RESULTS_FOLDER}
+mkdir -p ${RESULTS_FOLDER}${CSC_FILE%%.*}
+mv ${SIM_FOLDER}${SIMULATION}/ ${RESULTS_FOLDER}${CSC_FILE%%.*}
 
 # clean up
 destroy_env

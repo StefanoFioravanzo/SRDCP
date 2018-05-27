@@ -1,0 +1,27 @@
+----- Data Collection Node Statistics -----
+Node 2: TX Packets = 59, RX Packets = 59, PDR = 100.00%, PLR = 0.00%
+Node 3: TX Packets = 59, RX Packets = 59, PDR = 100.00%, PLR = 0.00%
+Node 4: TX Packets = 59, RX Packets = 59, PDR = 100.00%, PLR = 0.00%
+Node 5: TX Packets = 59, RX Packets = 58, PDR = 98.31%, PLR = 1.69%
+Node 6: TX Packets = 59, RX Packets = 57, PDR = 96.61%, PLR = 3.39%
+Node 7: TX Packets = 59, RX Packets = 59, PDR = 100.00%, PLR = 0.00%
+
+----- Data Collection Overall Statistics -----
+Total Number of Packets Sent: 354
+Total Number of Packets Received: 351
+Overall PDR = 99.15%
+Overall PLR = 0.85%
+
+----- Source Routing Node Statistics -----
+Node 2: TX Packets = 29, RX Packets = 29, PDR = 100.00%, PLR = 0.00%
+Node 3: TX Packets = 29, RX Packets = 29, PDR = 100.00%, PLR = 0.00%
+Node 4: TX Packets = 29, RX Packets = 29, PDR = 100.00%, PLR = 0.00%
+Node 5: TX Packets = 29, RX Packets = 29, PDR = 100.00%, PLR = 0.00%
+Node 6: TX Packets = 28, RX Packets = 28, PDR = 100.00%, PLR = 0.00%
+Node 7: TX Packets = 28, RX Packets = 27, PDR = 96.43%, PLR = 3.57%
+
+----- Source Routing Overall Statistics -----
+Total Number of Packets Sent: 172
+Total Number of Packets Received: 171
+Overall PDR = 99.42%
+Overall PLR = 0.58%

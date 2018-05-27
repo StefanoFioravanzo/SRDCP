@@ -1,0 +1,47 @@
+[17:31:55 - main] [Cooja.java:3172] [WARN] - JAVA_HOME environment variable not set, Cooja motes may not compile
+[17:31:55 - main] [Cooja.java:1315] [INFO] - > Starting Cooja
+[17:31:55 - main] [Cooja.java:2856] [INFO] - External tools default settings: /external_tools_linux_64.config
+[17:31:55 - main] [Cooja.java:2886] [INFO] - External tools user settings: /root/.cooja.user.properties
+[17:31:55 - main] [Simulation.java:422] [INFO] - Simulation random seed: -3917153055497593734
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:56 - main] [MspMote.java:235] [INFO] - Loading firmware from: /code/sim/src/app.sky
+[17:31:57 - main] [Cooja.java:1781] [INFO] - Visualized plugin was not started: class org.contikios.cooja.plugins.SimControl
+[17:31:57 - main] [Cooja.java:1781] [INFO] - Visualized plugin was not started: class org.contikios.cooja.plugins.Visualizer
+[17:31:57 - main] [Cooja.java:1781] [INFO] - Visualized plugin was not started: class org.contikios.cooja.plugins.LogListener
+[17:31:57 - main] [Cooja.java:1781] [INFO] - Visualized plugin was not started: class org.contikios.cooja.plugins.TimeLine
+[17:31:57 - main] [Cooja.java:1781] [INFO] - Visualized plugin was not started: class org.contikios.cooja.plugins.RadioLogger
+[17:31:57 - main] [ScriptRunner.java:430] [INFO] - Test script deactivated
+[17:31:57 - main] [LogScriptEngine.java:265] [INFO] - Script timeout in 1800000 ms
+[17:31:58 - main] [ScriptRunner.java:387] [INFO] - Test script activated
+[17:31:58 - Thread-2] [Simulation.java:253] [INFO] - Simulation main loop started, system time: 1526837518119
+[17:32:11 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 5.00%, done in 255.9 sec
+[17:32:23 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 10.00%, done in 227.0 sec
+[17:32:34 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 15.00%, done in 206.5 sec
+[17:32:47 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 20.00%, done in 196.9 sec
+[17:32:59 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 25.00%, done in 183.4 sec
+[17:33:10 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 30.00%, done in 169.8 sec
+[17:33:22 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 35.00%, done in 157.2 sec
+[17:33:34 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 40.00%, done in 144.5 sec
+[17:33:46 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 45.00%, done in 132.4 sec
+[17:33:57 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 50.00%, done in 119.7 sec
+[17:34:10 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 55.00%, done in 108.0 sec
+[17:34:21 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 60.00%, done in 95.6 sec
+[17:34:32 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 65.00%, done in 83.1 sec
+[17:34:43 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 70.00%, done in 71.1 sec
+[17:34:55 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 75.00%, done in 59.1 sec
+[17:35:06 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 80.00%, done in 47.1 sec
+[17:35:17 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 85.00%, done in 35.2 sec
+[17:35:29 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 90.00%, done in 23.5 sec
+[17:35:40 - Thread-2] [LogScriptEngine.java:389] [INFO] - Test script at 95.00%, done in 11.7 sec
+[17:35:54 - Thread-2] [LogScriptEngine.java:375] [INFO] - Timeout event @ 1800000000
+[17:35:54 - Thread-2] [Simulation.java:312] [INFO] - Simulation main loop stopped, system time: 1526837754105	Duration: 235986 ms	Simulated time 1800096 ms	Ratio 7.627977930894206
+[17:35:54 - Thread-1] [LogScriptEngine.java:309] [INFO] - Test script finished
+[17:35:54 - AWT-EventQueue-0] [ScriptRunner.java:430] [INFO] - Test script deactivated

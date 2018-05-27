@@ -2,7 +2,7 @@
 
 Cooja is the Contiki network simulator. Cooja allows large and small networks of Contiki motes to be simulated. Motes can be emulated at the hardware level, which is slower but allows precise inspection of the system behavior, or at a less detailed level, which is faster and allows simulation of larger networks.
 
-Every simulation is described using a `csc` file, which is just an `xml` specification of the motes network. Every aspect of the simulation configuration can be set using the `csc` file. 
+Every simulation is described using a `csc` file, which is just an `xml` specification of the motes network. Every aspect of the simulation configuration can be set using the `csc` file.
 
 Cooja provides also the possibility to write test scripts inside the configuration file. In this way it's easy to control simulation behaviour (e.g. set simulation time) and read/write files with simulation statistics. All the simulations used for this project include a test script at the bottom of the configuration file.
 
@@ -38,11 +38,12 @@ These statistics are mainly influenced by the following configuration parameters
 - `BEACON_FORWARD_DELAY`: Time in seconds
 - `TOPOLOGY_REPORT_HOLD_TIME`: Time in seconds
 - `NETSTACK_RDC`: *contikimac\_driver* or *nullrdc\_driver*
-- `NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE`: 8 or 16 or 32
+- `NETSTACK_CONF_RDC_CHANNEL_CHECK_RATE`: 8 or 32
 
-Thus the simulations were carried out using a combination of the possible variations of them.
+Thus the simulations were carried out using a combination of the possible variations of them. Also, different scenarios (number of nodes and their placement) were considered. The first results presented are produced from the `random_topology_1.csc` file, which presents the following nodes placements (The topology shown in the figure is an approximation of what happens most often towards the end of the simulations):
 
-The tests were run using the provided 10 nodes topology defined in the `test_nogui_dc.csc` file. 
+<img src="../plots/random_topology_1.png"
+     alt="random_topology_1"/>
 
 **NullRDC**
 
@@ -68,3 +69,42 @@ Working on the timings and the details of the protocol did not produce any meani
 | Piggybacking + Topology Reports | 99% | 99% | ~3.3% |
 | Piggybacking Only | 99% | 99% | ~3.3% |
 | Topology Reports Only | 99% | 95% | ~3.3% |
+
+---
+
+To stress the protocol in unusual conditions and test its limits, we can try to run some simulations on strange and uncommon topologies.
+
+The first one is a 7 nodes topology, in which the nodes are placed one after the other on a single line:
+
+<img src="../plots/linear_topology.png"
+     alt="linear_topology"/>
+
+Results:
+
+| Setting | Data Collection - PDR | Source Routing - PDR | AVG Radio ON |
+| :-: |:-:| :-:| :-: |
+| Piggybacking + Topology Reports (8Hz) | 96% | 97% | ~2.5% |
+| Piggybacking + Topology Reports (32Hz) | 99% | 99% | ~3.4% |
+
+The second one is a star like topology, where every point of the star is a small cluster of nodes. In this topology, the nodes that are with a cluster should have some difficulty in communicating between them (due to high collision) and this could prevent the connections between the clusters). Node 1 is the Sink node on the bottom left.
+
+On average, the final routing tables presents the following connections:
+
+<img src="../plots/random_topology_2.png"
+     alt="random_topology_2"/>
+     
+Results:
+
+| Setting | Data Collection - PDR | Source Routing - PDR | AVG Radio ON |
+| :-: |:-:| :-:| :-: |
+| Piggybacking + Topology Reports (8Hz) | 89% | 94% | ~3.25% |
+| Piggybacking + Topology Reports (32Hz) | 99% | 99% | ~3.88% |
+
+The last test topology is a "scaled down" version of the first one. The distance between the nodes has beed reduced by a factor of 1, in this case every node can hear and reach every other node in the topology. The resulting topology is a star topology, where every node is directly connected to the sink:
+
+<img src="../plots/random_topology_1_close.png"
+     alt="random_topology_2"/>
+
+For this reason, there is little routing to be done to distribute packets. The only possible issue in delivering packets could be collisions, but simulations showed that this is not the case and the network reaches 100% in both source routing and data collection packet delivery rate, keeping a very low average on time.
+
+---

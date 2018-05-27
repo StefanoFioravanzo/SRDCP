@@ -1,0 +1,47 @@
+ WARN [main] (Cooja.java:3172) - JAVA_HOME environment variable not set, Cooja motes may not compile
+ INFO [main] (Cooja.java:1315) - > Starting Cooja
+ INFO [main] (Cooja.java:2856) - External tools default settings: /external_tools_linux_64.config
+ INFO [main] (Cooja.java:2886) - External tools user settings: /root/.cooja.user.properties
+ INFO [main] (Simulation.java:422) - Simulation random seed: 3209195290590603355
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (MspMote.java:235) - Loading firmware from: /code/sim/src/app.sky
+ INFO [main] (Cooja.java:1781) - Visualized plugin was not started: class org.contikios.cooja.plugins.SimControl
+ INFO [main] (Cooja.java:1781) - Visualized plugin was not started: class org.contikios.cooja.plugins.Visualizer
+ INFO [main] (Cooja.java:1781) - Visualized plugin was not started: class org.contikios.cooja.plugins.LogListener
+ INFO [main] (Cooja.java:1781) - Visualized plugin was not started: class org.contikios.cooja.plugins.TimeLine
+ INFO [main] (Cooja.java:1781) - Visualized plugin was not started: class org.contikios.cooja.plugins.RadioLogger
+ INFO [main] (ScriptRunner.java:430) - Test script deactivated
+ INFO [main] (LogScriptEngine.java:265) - Script timeout in 1800000 ms
+ INFO [main] (ScriptRunner.java:387) - Test script activated
+ INFO [Thread-2] (Simulation.java:253) - Simulation main loop started, system time: 1526827505587
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 5.00%, done in 388.0 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 10.00%, done in 328.6 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 15.00%, done in 298.7 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 20.00%, done in 276.4 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 25.00%, done in 255.7 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 30.00%, done in 236.0 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 35.00%, done in 217.7 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 40.00%, done in 200.1 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 45.00%, done in 182.6 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 50.00%, done in 165.6 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 55.00%, done in 148.9 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 60.00%, done in 132.8 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 65.00%, done in 117.7 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 70.00%, done in 101.1 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 75.00%, done in 84.4 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 80.00%, done in 68.2 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 85.00%, done in 51.1 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 90.00%, done in 34.2 sec
+ INFO [Thread-2] (LogScriptEngine.java:389) - Test script at 95.00%, done in 17.1 sec
+ INFO [Thread-2] (LogScriptEngine.java:375) - Timeout event @ 1800000000
+ INFO [Thread-2] (Simulation.java:312) - Simulation main loop stopped, system time: 1526827846506	Duration: 340919 ms	Simulated time 1800046 ms	Ratio 5.2799814618721745
+ INFO [Thread-1] (LogScriptEngine.java:309) - Test script finished
+ INFO [AWT-EventQueue-0] (ScriptRunner.java:430) - Test script deactivated

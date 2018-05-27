@@ -9,7 +9,7 @@
 #include "core/net/linkaddr.h"
 
 // Allow or not to send topology reports.
-#define TOPOLOGY_REPORT 0
+#define TOPOLOGY_REPORT 1
 #define PIGGYBACKING 1
 
 #define MAX_NODES 30
@@ -18,9 +18,6 @@
 #define BEACON_INTERVAL (CLOCK_SECOND*30)
 #define BEACON_FORWARD_DELAY (random_rand() % (CLOCK_SECOND*4))
 // Used for topology reports
-// #define TOPOLOGY_REPORT_INIT_DELAY (random_rand() % (CLOCK_SECOND*1))
-// #define TOPOLOGY_REPORT_INTERVAL (CLOCK_SECOND*30)
-// #define TOPOLOGY_REPORT_INTERVAL_RAND ((rand() % (60 + 1 - 30) + 30)*CLOCK_SECOND)
 #define TOPOLOGY_REPORT_HOLD_TIME (CLOCK_SECOND*15)
 
 #define RSSI_THRESHOLD -95
