@@ -18,7 +18,7 @@ The protocol to construct the topology is as follows:
 	- Check if the signal strength is sufficient and beacon metric is greater than previous one
 	- If both conditions true, go to step **3**
 	- Otherwise return
-3. Node: Register sender as parent
+3. Node: register sender as parent
 4. Node: forward beacon with sequence number `i` and `metric + 1`
 
 The Sink will periodically re-initiate the protocol with sequence number `i+1` to rebuild or fix the topology, accounting for any message loss during the previous runs or any change in the nodes present in the network.
@@ -29,7 +29,7 @@ The `metric` used here is just the hop count, initialized by the sink to `0`. Mo
 
 The data collection protocol simply requires every node to be able to send some data to the sink. Having already built a spanning tree of all the nodes in the network with the Sink node as root, collecting this data is just a matter of sending a packet to the parent and forward it until it reaches the Sink.
 
-Once the sink received the packet, it can read the original sender form the packet header and send the data to the application layer.
+Once the sink receives the packet, it can read the original sender form the packet header and send the data to the application layer.
 
 #### Source Routing
 
@@ -44,7 +44,7 @@ The are two ways to do it:
 
 The Sink stores the topology information inside a routing table in the form of `node -> parent`, when it needs to send data to a specific node, it can compute a path backwards using the information in the routing table.
 
->**Note**: While computing the path, the Sink needs to check for any loop in the routing table. These loops could form because the routing table is not a precise snapshot of the current network topology, but is dependent on the transmission of topology report messages or piggybacked information, which take some time to propagate.
+>**Note**: While computing the path, the Sink needs to check for any loop in the routing table. These loops could form because the routing table is not a precise snapshot of the current network topology, but it is dependent on the transmission of topology report messages or piggybacked information, which can take some time to propagate.
 
 Once the sink has determined a viable path, it has to include all the involved nodes' addresses inside the header of the packet. Once a node receives a source routing packet the following happens:
 

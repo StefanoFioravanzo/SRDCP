@@ -13,8 +13,6 @@ It also provides two callback functions to process the received data from the tw
 
 Contiki's configuration header. Here are defined the parameters of the contiki's network stack alongside other parameter of Contiki OS, like the channel used for communications, several hardware functionalities, the routing protocol and its parameters, etc...
 
-**TOOD: List parameters and their configuration.**
-
 #### `my_collect.h`
 
 All the main configuration macros regarding message scheduling and network properties are defined here, alongside with structures that defines the routing table, and all the messages types.
