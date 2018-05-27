@@ -173,3 +173,17 @@
 
 ### random_topology_1_close
 
+- **01-contikimac-full**:
+
+	- `my_collect.h`:
+
+		TOPOLOGY\_REPORT 1  
+		PIGGYBACKING 1  
+		BEACON\_INTERVAL (`CLOCK_SECOND*30`)  
+		BEACON\_FORWARD\_DELAY (`random_rand() % (CLOCK_SECOND*4)`)  
+		TOPOLOGY\_REPORT\_HOLD\_TIME (`CLOCK_SECOND*15`)  
+
+	- `project-conf.h`:
+
+		NETSTACK\_RDC contikimac\_driver  
+		NETSTACK\_CONF\_RDC\_CHANNEL\_CHECK\_RATE 8

@@ -108,3 +108,5 @@ The last test topology is a "scaled down" version of the first one. The distance
 For this reason, there is little routing to be done to distribute packets. The only possible issue in delivering packets could be collisions, but simulations showed that this is not the case and the network reaches 100% in both source routing and data collection packet delivery rate, keeping a very low average on time.
 
 ---
+
+Considering the results of the test above, the algorithm is able to provide reliable performance even under stressful conditions, even though it was designed starting from very simple rules and choices. Running many simulations using a lot of nodes is very demanding and time consuming, so other configurations and topologies were not considered in the analysis. The next step to understand the real capabilities of the protocol would be to deploy it in a real world scenario, where something aways eventually goes wrong :) 
