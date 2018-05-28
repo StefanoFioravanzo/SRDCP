@@ -22,7 +22,7 @@ For a detailed description of the source code and main functions, refer to the [
 
 The Cooja Network Simulator is part of the Contiki project and was built to run simulations of network software developed with Contiki. Cooja allows to simulate both large-scale networks or fully emulated hardware devices in extreme detail.
 
-Under the `sim/` folder there are instructions to run some Cooja simulations on simple networks and how to parse the results. A summary of the simulations' results is under `results/`.
+Under the `sim/` folder there are instructions to run some Cooja simulations on simple networks and how to parse the results as well as a summary and discussion of the simulations' results.
 
 ### Build
 
