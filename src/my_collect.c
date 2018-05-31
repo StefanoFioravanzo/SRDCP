@@ -57,6 +57,7 @@ void beacon_timer_cb(void* ptr) {
         if (conn->is_sink == 1) {
                 // we pass the connection object conn to the timer callback
                 ctimer_set(&conn->beacon_timer, BEACON_INTERVAL, beacon_timer_cb, conn);
+                conn->seqn = conn->seqn+1;
         }
 }
 
@@ -106,7 +107,7 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
                 // new tree
                 conn->beacon_seqn = beacon.seqn;
         }else{
-                if (conn->metric <= beacon.metric) {
+                if (conn->metric <= beacon.metric+1) {
                         // current hop count is better
                         printf("my_collect: return. conn->metric: %u, beacon.metric: %u\n",
                                conn->metric, beacon.metric);
